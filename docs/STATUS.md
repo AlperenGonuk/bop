@@ -38,10 +38,15 @@ Local preparation is done (DECISIONS 33–34). Order:
    script downloaded and verified the real exe, `/bop` opens the pet (after restarting Claude
    Code; a running session does not see a newly installed plugin). Not tried: macOS, Linux.
    Data folder `~/.claude/plugins/data/bop-bop/`.
-5. Directory submission (Alperen, claude.ai/directory/manage, paid plan): Submit new → Plugin
-   bundle → repository `AlperenGonuk/bop`, plugin path empty (root) → **Validate**. Expected
-   holds for a reviewer: `icon.ico`, the downloaded executable, maybe the short name `bop`.
-   Fix anything marked Blocking, then submit.
+5. ~~Directory submission~~ Submitted 2026-10-02 (claude.ai/directory/manage, repository
+   `AlperenGonuk/bop`, root, branch `main`). Auto-publish **off**: every passing version waits
+   for Alperen to press **Publish**. GitHub push webhook added (green ping).
+6. **Waiting for review.** Follow it under **Submissions** in the portal; the scan reads the
+   newest commit on `main`. Expected reviewer questions: the downloaded executable, `icon.ico`,
+   "uses a credential" (the app only removes inherited `CLAUDE_CODE_*` variables), and the name
+   `bop` being close to the connector "bocp" (if the reviewer asks for a rename, use
+   `displayName`/`renames`, see the publish docs).
+7. Alperen: enable GitHub 2FA before 2026-10-29, otherwise pushes and releases are restricted.
 
 Linux testing (WSL Ubuntu 24.04, WSLg): a clean clone in `~/bop` (updated with `git pull`), Rust at
 user level (rustup), Tauri packages installed from the CI list. CI steps passed by hand:

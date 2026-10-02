@@ -35,6 +35,13 @@ Yerel hazırlık bitti (KARARLAR 33–34). Repo `AlperenGonuk/bop` henüz yok. S
    yalnız Actions). Veri klasörü `~/.claude/plugins/data/bop-bop/`.
 5. Dizin başvurusu öncesi: `bop` adı portalda alınmış mı; claude.ai/directory/manage.
 
+Linux denemesi (WSL Ubuntu 24.04, WSLg): `~/bop` temiz klon (`git pull` ile güncellenir), Rust
+kullanıcı düzeyinde (rustup), Tauri paketleri CI listesiyle kurulu. CI adımları elle geçti:
+`cargo test --locked` 42/42, `cargo build --release --locked`, `--version` duman testi,
+`install.sh` gerçek exe + yerel sahte release (127.0.0.1) ile 6 durum. Pet WSLg'de açılıyor.
+İlk denemede iki Linux sorunu çıktı ve düzeldi (pet yolunda `\`/`:`, `valid_url` uyarısı).
+Not: Git Bash'ten `wsl.exe`'ye yol verirken `MSYS_NO_PATHCONV=1` gerekir.
+
 Bilinen sınırlar: macOS/Linux'ta "Open in terminal", "Make a new pet" ve kaynak bağlantıları
 henüz "Windows only" (README yazıyor). Wayland'da her zaman üstte/konum/fare konumu yok.
 

@@ -1,7 +1,7 @@
 ---
 name: hatch
 description: Creates a new pet for the Bop desktop pet app by describing it as a JSON spec and letting the Bop app draw every animation frame with code (no image generation). Use when the user wants to make, create, design, draw or hatch a new Bop pet or mascot, for example "Let's make a new Bop pet!", "make me a blue cat pet", or "hatch a ghost for Bop".
-allowed-tools: Bash(${CLAUDE_PLUGIN_DATA}/bin/bop *), Bash(${CLAUDE_PLUGIN_DATA}/bin/bop.exe *), Bash("${CLAUDE_PLUGIN_DATA}/bin/bop" *), Bash("${CLAUDE_PLUGIN_DATA}/bin/bop.exe" *), PowerShell(${CLAUDE_PLUGIN_DATA}/bin/bop.exe *), PowerShell("${CLAUDE_PLUGIN_DATA}/bin/bop.exe" *), PowerShell(& "${CLAUDE_PLUGIN_DATA}/bin/bop.exe" *)
+allowed-tools: Bash("${CLAUDE_PLUGIN_DATA}/bin/bop" hatch *), Bash("${CLAUDE_PLUGIN_DATA}/bin/bop.exe" hatch *), PowerShell(& "${CLAUDE_PLUGIN_DATA}/bin/bop.exe" hatch *), Bash("${CLAUDE_PLUGIN_DATA}/bin/bop" install *), Bash("${CLAUDE_PLUGIN_DATA}/bin/bop.exe" install *), PowerShell(& "${CLAUDE_PLUGIN_DATA}/bin/bop.exe" install *), Bash("${CLAUDE_PLUGIN_DATA}/bin/bop" use *), Bash("${CLAUDE_PLUGIN_DATA}/bin/bop.exe" use *), PowerShell(& "${CLAUDE_PLUGIN_DATA}/bin/bop.exe" use *)
 ---
 
 # Hatch a Bop pet

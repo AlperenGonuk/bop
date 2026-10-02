@@ -76,6 +76,14 @@ Known limits: on macOS/Linux "Open in terminal", "Make a new pet" and source lin
 
 ## Last session
 
+- 2026-10-02 (13): Portal **Validate** passed with no Blocking findings. Policy holds: broad
+  `allowed-tools` (fixed: each skill now pre-approves only the app subcommands and install
+  commands it uses; tested with `--permission-mode default`: `/bop list` and `/bop setup` run, an
+  unlisted command is denied), images "the code could run" (12; embedded pet data, not run),
+  `icon.ico`, "uses a credential" (the app only *removes* inherited `CLAUDE_CODE_*` session
+  variables; `GH_TOKEN` is in the release workflow), name close to the connector "bocp".
+  Warnings: unrecognized `plugin.json` fields (3), hook output uninspected (2),
+  download-and-run (2, the install scripts).
 - 2026-10-02 (12): Checked the repository against the directory's pre-submission checklist:
   hook commands in a plugin subfolder were **Blocking**. Plugin moved to the repository root,
   hook logic moved to `hooks/bop-hook.sh` / `.ps1` (DECISIONS 36). README: Markdown image, "How

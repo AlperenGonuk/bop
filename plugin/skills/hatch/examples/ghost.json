@@ -1,0 +1,9 @@
+{
+  "formatVersion": 1,
+  "id": "boo",
+  "displayName": "Boo",
+  "description": "A shy little ghost.",
+  "archetype": "floaty",
+  "palette": { "body": "#EEF0FF", "cheek": "#FF9BB0" },
+  "face": { "eyes": "bean", "mouth": "curve" }
+}

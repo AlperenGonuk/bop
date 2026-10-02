@@ -1,0 +1,15 @@
+{
+  "name": "bop",
+  "description": "Bop, a desktop pet for Claude Code.",
+  "owner": {
+    "name": "Alperen"
+  },
+  "plugins": [
+    {
+      "name": "bop",
+      "source": "./plugin",
+      "description": "A desktop pet for Claude Code: it shows what Claude is doing and you can chat with it.",
+      "category": "productivity"
+    }
+  ]
+}

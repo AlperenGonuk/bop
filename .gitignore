@@ -1,0 +1,19 @@
+__pycache__/
+*.pyc
+.venv/
+venv/
+state.json
+*.log
+.vscode/
+
+# Yerel geliştirme petleri (Johnny dahil), repoya girmez
+dev-pets/
+
+# Rust/Tauri derleme çıktısı
+target/
+
+# Tauri web tarafı bağımlılıkları
+node_modules/
+
+# Tauri'nin derlemede ürettiği şemalar
+app/src-tauri/gen/

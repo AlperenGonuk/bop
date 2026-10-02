@@ -1,0 +1,19 @@
+{
+  "name": "bop",
+  "displayName": "Bop",
+  "version": "0.1.0",
+  "description": "A desktop pet for Claude Code: it shows what Claude is doing and you can chat with it.",
+  "author": {
+    "name": "Alperen"
+  },
+  "license": "MIT",
+  "keywords": [
+    "pet",
+    "mascot",
+    "desktop",
+    "companion"
+  ],
+  "metadata": {
+    "releaseRepo": "AlperenGonuk/bop"
+  }
+}

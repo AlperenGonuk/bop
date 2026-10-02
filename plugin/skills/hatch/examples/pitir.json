@@ -1,0 +1,15 @@
+{
+  "formatVersion": 1,
+  "id": "pitir",
+  "displayName": "Pitir",
+  "description": "A code-drawn mandarin sprout, the default Bop pet.",
+  "archetype": "blob",
+  "palette": {
+    "body": { "base": "#FFB066", "shade": "#E8873C", "hi": "#FFE2B8" },
+    "foot": "#D9722E",
+    "accent": { "base": "#8BD14A", "shade": "#4E9A2A" },
+    "outline": "#2B2140"
+  },
+  "options": { "topper": "sprout", "arms": "gesture" },
+  "face": { "eyes": "dot", "mouth": "smile", "cheeks": true }
+}

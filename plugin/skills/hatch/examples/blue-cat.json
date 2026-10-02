@@ -1,0 +1,9 @@
+{
+  "formatVersion": 1,
+  "id": "blue-cat",
+  "displayName": "Blue Cat",
+  "description": "A small blue cat.",
+  "archetype": "critter",
+  "palette": { "body": "#7FA8E8" },
+  "options": { "ears": "cat", "tail": "long" }
+}

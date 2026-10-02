@@ -1,0 +1,22 @@
+{
+  "formatVersion": 1,
+  "id": "sir-bean",
+  "displayName": "Sir Bean",
+  "description": "A tall bean with a tiny top hat and a scarf.",
+  "archetype": "blob",
+  "palette": {
+    "body": "#9BD36A",
+    "accent": "#E8505B",
+    "hat": "#3B3355",
+    "band": "#F2C14E"
+  },
+  "options": { "body": "tall", "arms": "always", "accessory": "scarf" },
+  "face": { "eyes": "round", "mouth": "curve", "brows": true },
+  "parts": [
+    { "name": "body", "size": [24, 31] },
+    { "name": "hatBrim", "on": "head", "shape": "rect", "at": [0, -15], "size": [16, 2.5], "radius": 1, "color": "hat", "z": 3 },
+    { "name": "hatTop", "on": "head", "shape": "rect", "at": [0, -15], "offset": [0, -4], "size": [10, 7], "color": "hat", "z": 3, "join": "hatBrim" },
+    { "name": "hatBand", "on": "head", "shape": "pixels", "at": [0, -16.5], "z": 3.5,
+      "rows": ["bbbbbbbbbb"], "key": { "b": "band" } }
+  ]
+}

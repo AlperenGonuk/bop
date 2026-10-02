@@ -1,0 +1,270 @@
+/* Terminal havası: Claude Code CLI'a benzer koyu, monospace balon. */
+:root {
+  --term-bg: #1a1817;
+  --term-fg: #e8e2dc;
+  --term-dim: #8c847d;
+  --term-line: #4a423d;
+  --accent: #d97757;
+  --error: #ff8a80;
+  --mono: "Cascadia Mono", "Cascadia Code", Consolas, "Courier New", monospace;
+}
+
+html, body {
+  margin: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: transparent;
+  user-select: none;
+  font: 12px/1.45 var(--mono);
+}
+
+/* Pet: kapalıyken pencerenin tamamı; balon açıkken konumu JS verir (ekranda yerinde kalır). */
+#pet {
+  position: absolute;
+  top: 0;
+  left: 0;
+  display: block;
+  width: 192px;
+  height: 208px;
+}
+
+/* --- Sohbet balonu ------------------------------------------------------ */
+
+/* Konum ve yükseklik JS'ten (balon karakterin görünen sınırına yanaşır). */
+#panel {
+  position: absolute;
+  left: 0;
+  right: 0;
+  padding: 4px 6px 11px;
+  box-sizing: border-box;
+  /* Pet hücresinin saydam kenarına biner; tıklamalar balona gitsin. */
+  z-index: 1;
+}
+
+#panel[hidden] { display: none; }
+
+/* Yukarıda yer yoksa balon petin altında. */
+body.below #panel {
+  padding: 11px 6px 4px;
+}
+
+#bubble {
+  position: relative;
+  height: 100%;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  background: var(--term-bg);
+  color: var(--term-fg);
+  border: 1px solid var(--term-line);
+  border-radius: 8px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
+}
+
+/* Pete bakan kuyruk. */
+#bubble::after {
+  content: "";
+  position: absolute;
+  bottom: -6px;
+  left: var(--tail-x, 50%);
+  width: 10px;
+  height: 10px;
+  background: var(--term-bg);
+  border-right: 1px solid var(--term-line);
+  border-bottom: 1px solid var(--term-line);
+  transform: translateX(-50%) rotate(45deg);
+}
+
+body.below #bubble::after {
+  bottom: auto;
+  top: -6px;
+  transform: translateX(-50%) rotate(225deg);
+}
+
+/* Başlık: kenar çizgisinin üstünde klasör, sağda ikonlar. */
+header {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 3px 4px 3px 8px;
+  border-bottom: 1px solid var(--term-line);
+}
+
+#folder {
+  flex: 1;
+  min-width: 0;
+  color: var(--term-dim);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+header button {
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  background: none;
+  color: var(--term-dim);
+  font: 13px/1 var(--mono);
+  cursor: pointer;
+}
+
+header button:hover:not(:disabled) {
+  background: var(--term-line);
+  color: var(--term-fg);
+}
+
+header button:disabled { opacity: 0.35; cursor: default; }
+
+#messages {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 6px 8px;
+  user-select: text;
+  scrollbar-width: thin;
+  scrollbar-color: var(--term-line) transparent;
+}
+
+.msg {
+  margin: 0 0 6px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.msg.user { color: var(--term-fg); }
+.msg.user::before { content: "> "; color: var(--accent); }
+.msg.pet { color: var(--term-fg); opacity: 0.92; }
+.msg.error { color: var(--error); }
+.msg.busy { color: var(--accent); }
+.msg.note { color: var(--term-dim); font-style: italic; }
+
+/* Cevabın altında katlanmış kaynak listesi. */
+.sources {
+  margin-top: 3px;
+  white-space: normal;
+  color: var(--term-dim);
+}
+
+.sources summary {
+  width: fit-content;
+  cursor: pointer;
+  list-style: none;
+}
+
+.sources summary::-webkit-details-marker { display: none; }
+.sources summary::before { content: "▸ "; }
+.sources[open] summary::before { content: "▾ "; }
+.sources summary:hover { color: var(--term-fg); }
+
+.sources a {
+  display: block;
+  padding-left: 12px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: var(--accent);
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.sources a:hover span:first-child { text-decoration: underline; }
+
+/* Gerçek alan adı: başlıktan bağımsız, her zaman görünür. */
+.sources .host {
+  margin-left: 6px;
+  color: var(--term-dim);
+}
+
+/* Klasör güven sorusu. */
+.msg.trust {
+  padding: 6px 8px;
+  border: 1px solid var(--term-line);
+  border-radius: 6px;
+  white-space: normal;
+}
+
+.msg.trust .q { color: var(--accent); }
+.msg.trust .path { color: var(--term-fg); overflow-wrap: anywhere; margin: 2px 0 4px; }
+.msg.trust .warn { color: var(--error); margin-top: 4px; }
+
+.msg.trust .buttons {
+  display: flex;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.msg.trust button {
+  padding: 2px 10px;
+  border: 1px solid var(--term-line);
+  border-radius: 4px;
+  background: none;
+  color: var(--term-fg);
+  font: inherit;
+  cursor: pointer;
+}
+
+.msg.trust button:hover { background: var(--term-line); }
+.msg.trust button:first-child { border-color: var(--accent); color: var(--accent); }
+
+/* İstem satırı. */
+#form {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  padding: 5px 6px 5px 8px;
+  border-top: 1px solid var(--term-line);
+}
+
+.prompt {
+  color: var(--accent);
+  line-height: 20px;
+}
+
+#input {
+  flex: 1;
+  height: 20px;
+  max-height: 60px;
+  padding: 0;
+  border: 0;
+  outline: none;
+  resize: none;
+  background: transparent;
+  color: var(--term-fg);
+  font: inherit;
+  line-height: 20px;
+  caret-color: var(--accent);
+}
+
+#input::placeholder { color: var(--term-dim); }
+
+#send {
+  width: 22px;
+  height: 20px;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  background: none;
+  color: var(--accent);
+  font: 14px/1 var(--mono);
+  cursor: pointer;
+}
+
+#send:hover:not(:disabled) { background: var(--term-line); }
+#send:disabled { opacity: 0.35; cursor: default; }
+
+#error {
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  bottom: 8px;
+  padding: 6px;
+  border-radius: 6px;
+  background: rgba(40, 0, 0, 0.85);
+  color: #ffb4b4;
+  font-size: 11px;
+  overflow-wrap: anywhere;
+}

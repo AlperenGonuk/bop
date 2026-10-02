@@ -23,7 +23,7 @@ fn eye_x(f: &Frame) -> f64 {
 }
 
 #[test]
-fn ornekler_hatasiz_cizilir() {
+fn examples_draw_without_errors() {
     for name in spec::EXAMPLES {
         let ch = spec::parse(spec::example(name).unwrap()).unwrap_or_else(|e| panic!("{name}: {e}"));
         let h = hatch(&ch);
@@ -33,57 +33,57 @@ fn ornekler_hatasiz_cizilir() {
 }
 
 #[test]
-fn atlas_satir_ve_kare_sayilari() {
+fn atlas_row_and_frame_counts() {
     let ch = spec::parse(spec::example("pitir").unwrap()).unwrap();
     let h = hatch(&ch);
     let expected = [6, 8, 8, 4, 5, 8, 6, 6, 6, 8, 8];
     for (r, n) in expected.iter().enumerate() {
-        assert_eq!(h.frames[r].len(), *n, "satır {r}");
+        assert_eq!(h.frames[r].len(), *n, "row {r}");
         for c in 0..8 {
             let used = c < *n || (r, c) == NEUTRAL_CELL;
             let any = (0..atlas::CELL_H).any(|y| (0..atlas::CELL_W).any(|x| h.sheet.get(c * 192 + x, r * 208 + y).3 > 0));
-            assert_eq!(any, used, "hücre ({r},{c})");
+            assert_eq!(any, used, "cell ({r},{c})");
         }
     }
-    // Saydam piksellerde RGB artığı yok.
+    // No RGB residue in transparent pixels.
     assert!(h.sheet.data.chunks_exact(4).all(|p| p[3] != 0 || p[..3] == [0, 0, 0]));
 }
 
 #[test]
-fn bakis_yonu_koordinattan_olculur() {
+fn look_direction_measured_from_coordinates() {
     let ch = spec::parse(spec::example("critter").unwrap()).unwrap();
     let h = hatch(&ch);
     let n = eye_x(&h.neutral);
-    // 90° (satır 9, kare 4) sağ, 270° (satır 10, kare 4) sol.
+    // 90° (row 9, frame 4) is right, 270° (row 10, frame 4) is left.
     assert!(eye_x(&h.frames[9][4]) > n + 1.0);
     assert!(eye_x(&h.frames[10][4]) < n - 1.0);
-    // Koşu: sağa koşan sağa, sola koşan sola bakar.
+    // Running: running right faces right, running left faces left.
     assert!(h.frames[1].iter().all(|f| eye_x(f) > n));
     assert!(h.frames[2].iter().all(|f| eye_x(f) < n));
 }
 
 #[test]
-fn bakista_govde_de_doner() {
-    // Pıtır denemesinin zayıflığı: bakışta yalnız yüz kayıyordu. Gövde (ve tepedeki filiz) de
-    // hafifçe dönmeli, ama gözlerden az.
+fn body_also_turns_when_looking() {
+    // Weakness of the Pitir attempt: only the face shifted when looking. The body (and the sprout
+    // on top) should turn slightly too, but less than the eyes.
     let ch = spec::parse(spec::example("pitir").unwrap()).unwrap();
     let h = hatch(&ch);
     let right = &h.frames[9][4];
     assert_ne!(right.px, h.neutral.px);
     let body_px = |f: &Frame| f.tag.iter().filter(|&&t| t == rig::TAG_PART).count();
-    // Filiz/yapraklar yön değiştirince başka piksellere düşer.
+    // The sprout/leaves land on different pixels when the direction changes.
     let moved = (0..right.px.len()).filter(|&i| (right.tag[i] == rig::TAG_PART) != (h.neutral.tag[i] == rig::TAG_PART)).count();
     assert!(moved > 0 && body_px(right) > 0);
 }
 
 #[test]
-fn ayni_spec_ayni_cikti() {
+fn same_spec_same_output() {
     let ch = spec::parse(spec::example("floaty").unwrap()).unwrap();
     assert_eq!(hatch(&ch).sheet.data, hatch(&ch).sheet.data);
 }
 
 #[test]
-fn ince_izgara_calisir() {
+fn fine_grid_works() {
     let text = spec::example("critter").unwrap().replace("\"archetype\"", "\"grid\": \"96x104\", \"archetype\"");
     let ch = spec::parse(&text).unwrap();
     assert_eq!(ch.grid.w, 96);
@@ -92,7 +92,7 @@ fn ince_izgara_calisir() {
 }
 
 #[test]
-fn hatali_spec_anlasilir_hata_verir() {
+fn bad_spec_gives_clear_error() {
     let bad = [
         (r##"{"id":"x","displayName":"X","colour":"#fff"}"##, "unknown field"),
         (r##"{"id":"Bad Id","displayName":"X"}"##, "id 'Bad Id'"),
@@ -110,13 +110,13 @@ fn hatali_spec_anlasilir_hata_verir() {
         (r##"{"id":"x","displayName":"X","parts":[{"name":"arm","width":0}]}"##, "'width' must be a number > 0"),
     ];
     for (text, want) in bad {
-        let e = spec::parse(text).err().unwrap_or_else(|| panic!("geçmemeliydi: {text}"));
-        assert!(e.contains(want), "{text}\n  hata: {e}\n  beklenen: {want}");
+        let e = spec::parse(text).err().unwrap_or_else(|| panic!("should have failed: {text}"));
+        assert!(e.contains(want), "{text}\n  error: {e}\n  expected: {want}");
     }
 }
 
 #[test]
-fn parca_ada_gore_degisir_ve_silinir() {
+fn parts_are_changed_and_removed_by_name() {
     let ch = spec::parse(
         r#"{"id":"x","displayName":"X","options":{"topper":"sprout"},
             "parts":[{"name":"body","size":[26,24]}],"remove":["leaf2"]}"#,
@@ -129,7 +129,7 @@ fn parca_ada_gore_degisir_ve_silinir() {
 }
 
 #[test]
-fn override_kareyi_degistirir() {
+fn override_changes_frame() {
     let ch = spec::parse(
         r##"{"id":"x","displayName":"X","palette":{"star":"#FFE05A"},
             "overrides":[{"row":"waving","frame":1,"at":[2,2],"rows":["s.s",".s.","s.s"],"key":{"s":"star"}}]}"##,
@@ -142,14 +142,14 @@ fn override_kareyi_degistirir() {
 }
 
 #[test]
-fn atlas_denetimi_bos_ve_yanlis_boyutu_yakalar() {
+fn atlas_check_catches_empty_and_wrong_size() {
     let codes = |img: &Image| validate::check_atlas(img).iter().filter(|i| i.level == Level::Error).map(|i| i.code).collect::<Vec<_>>();
     assert_eq!(codes(&Image::new(1536, 1872)), vec!["size"]);
     let empty = codes(&Image::new(1536, 2288));
     for c in ["frame-empty", "neutral-empty", "look-same-as-neutral"] {
-        assert!(empty.contains(&c), "{c} yok: {empty:?}");
+        assert!(empty.contains(&c), "{c} missing: {empty:?}");
     }
-    // Kullanılmayan hücrede piksel ve saydam RGB artığı.
+    // A pixel in an unused cell and transparent RGB residue.
     let ch = spec::parse(spec::example("pitir").unwrap()).unwrap();
     let mut h = hatch(&ch);
     h.sheet.put(7 * 192 + 50, 50, color::Rgba(1, 2, 3, 255));
@@ -159,10 +159,10 @@ fn atlas_denetimi_bos_ve_yanlis_boyutu_yakalar() {
 }
 
 #[test]
-fn durgun_satir_yakalanir() {
+fn static_row_is_caught() {
     let ch = spec::parse(spec::example("pitir").unwrap()).unwrap();
     let mut h = hatch(&ch);
-    // waiting satırının bütün karelerini ilk kareyle aynı yap.
+    // Make every frame of the waiting row identical to the first.
     let first: Vec<u8> = (0..208).flat_map(|y| {
         let i = ((6 * 208 + y) * 1536) * 4;
         h.sheet.data[i..i + 192 * 4].to_vec()
@@ -177,7 +177,7 @@ fn durgun_satir_yakalanir() {
 }
 
 #[test]
-fn png_gidip_gelir() {
+fn png_round_trips() {
     let ch = spec::parse(spec::example("pitir").unwrap()).unwrap();
     let h = hatch(&ch);
     let p = std::env::temp_dir().join(format!("bop-hatch-{}.png", std::process::id()));
@@ -189,7 +189,7 @@ fn png_gidip_gelir() {
 }
 
 #[test]
-fn pet_json_codex_uyumlu() {
+fn pet_json_is_codex_compatible() {
     let ch = spec::parse(spec::example("pitir").unwrap()).unwrap();
     let info = crate::pet::parse_pet_json(&pet_json(&ch)).unwrap();
     assert_eq!(info.id, "pitir");
@@ -198,22 +198,22 @@ fn pet_json_codex_uyumlu() {
 }
 
 #[test]
-fn gomulu_pitir_motorun_ciktisi() {
-    // default-pet/spritesheet.png motorla üretilir; spec değişip PNG yenilenmezse yakalanır.
+fn embedded_pitir_matches_engine_output() {
+    // default-pet/spritesheet.png is produced by the engine; this catches a spec change without a regenerated PNG.
     let ch = spec::parse(spec::example("pitir").unwrap()).unwrap();
     let h = hatch(&ch);
     let p = Path::new(env!("CARGO_MANIFEST_DIR")).join("default-pet").join("spritesheet.png");
     let embedded = atlas::read_png(&p).unwrap();
-    assert_eq!((embedded.w, embedded.h), (h.sheet.w, h.sheet.h), "default-pet/spritesheet.png boyutu farklı");
-    // Platformlar arası kayan nokta farkı birkaç kenar pikselini oynatabilir: bit-bit değil,
-    // farklı piksel oranı ≤ %0.5 aranır. Spec değişip PNG yenilenmezse fark bunun çok üstündedir.
+    assert_eq!((embedded.w, embedded.h), (h.sheet.w, h.sheet.h), "default-pet/spritesheet.png has a different size");
+    // Cross-platform floating point differences can shift a few edge pixels: instead of bit-for-bit,
+    // require a differing-pixel ratio ≤ 0.5%. A changed spec without a regenerated PNG differs far more.
     let differ = embedded.data.chunks_exact(4).zip(h.sheet.data.chunks_exact(4)).filter(|(a, b)| a != b).count();
     let total = h.sheet.w * h.sheet.h;
-    assert!(differ * 200 <= total, "default-pet/spritesheet.png eski ({differ}/{total} piksel farklı): bop hatch ile yeniden üretin");
+    assert!(differ * 200 <= total, "default-pet/spritesheet.png is stale ({differ}/{total} pixels differ): regenerate it with bop hatch");
 }
 
 #[test]
-fn tasan_pet_kuculterek_sigdirilir() {
+fn overflowing_pet_is_shrunk_to_fit() {
     let ch = spec::parse(
         r#"{"id":"big","displayName":"Big","archetype":"blob",
             "options":{"body":"wide","size":1.15,"arms":"always","topper":"antenna"}}"#,
@@ -226,39 +226,39 @@ fn tasan_pet_kuculterek_sigdirilir() {
 }
 
 #[test]
-fn kucultme_override_ile_birlikte_tasir() {
+fn shrink_moves_overrides_too() {
     let ch = spec::parse(
         r##"{"id":"x","displayName":"X","overrides":[{"row":"idle","frame":0,"at":[2,2],"rows":["sss","sss","sss"],"key":{"s":"#FFE05A"}}]}"##,
     )
     .unwrap();
-    // Merkez (3.5, 3.5), zemin ortası (24, 47.5): yeni merkez (7.6, 12.3), sol üst (6, 11).
+    // Center (3.5, 3.5), ground center (24, 47.5): new center (7.6, 12.3), top left (6, 11).
     assert_eq!(ch.shrunk(0.8).overrides[0].at, [6, 11]);
     assert_eq!(ch.shrunk(0.8).overrides[0].rows, ch.overrides[0].rows);
 }
 
 #[test]
-fn yalniz_override_tasarsa_kucultulmez() {
+fn not_shrunk_when_only_override_overflows() {
     let ch = spec::parse(
         r##"{"id":"x","displayName":"X","overrides":[{"row":"waving","frame":2,"at":[0,0],"rows":["ss","ss"],"key":{"s":"#FFE05A"}}]}"##,
     )
     .unwrap();
     let h = hatch(&ch);
-    assert!(!h.issues.iter().any(|i| i.code == "auto-fit"), "küçültülmemeli");
-    let clip = h.issues.iter().find(|i| i.code == "clipped").expect("kırpılma hatası");
+    assert!(!h.issues.iter().any(|i| i.code == "auto-fit"), "should not be shrunk");
+    let clip = h.issues.iter().find(|i| i.code == "clipped").expect("clipping error");
     assert_eq!((clip.row, clip.frame), (Some(3), Some(2)));
     assert!(clip.message.contains("override") && clip.message.contains("'at'"), "{}", clip.message);
 }
 
 #[test]
-fn laptopsuz_calisma_satirinda_gesture_kol_yok() {
+fn no_gesture_arms_in_running_row_without_laptop() {
     let text = |arms: &str, laptop: bool| {
         format!(r#"{{"id":"x","displayName":"X","options":{{"arms":"{arms}"}},"props":{{"laptop":{laptop}}}}}"#)
     };
     let row = |t: String| hatch(&spec::parse(&t).unwrap()).frames[7].iter().map(|f| f.px.clone()).collect::<Vec<_>>();
-    // Dizüstü yok: gesture kollar görünmez (kolsuz petle aynı), always kollar kıpırdar.
+    // No laptop: gesture arms are hidden (same as an armless pet), always arms fidget.
     assert_eq!(row(text("gesture", false)), row(text("none", false)));
     assert_ne!(row(text("always", false)), row(text("none", false)));
-    // Dizüstü var: kolsuz pete el çizilmez, gesture pete çizilir.
+    // With a laptop: no hands for an armless pet, hands drawn for a gesture pet.
     let hands = |t: String| {
         let ch = spec::parse(&t).unwrap();
         let body = ch.tone("body").unwrap();

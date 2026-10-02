@@ -1,28 +1,28 @@
-//! `spec.json`: karakter tanımı. Üç seviye aynı dosyada:
-//! (a) arketip + palet + seçenekler, (b) parçalar (ekle ya da ada göre değiştir),
-//! (c) ham piksel haritaları (parça olarak ya da belirli kare için `overrides`).
-//! Hata mesajları İngilizce: Claude okuyup spec'i düzeltir.
+//! `spec.json`: the character definition. Three levels in the same file:
+//! (a) archetype + palette + options, (b) parts (add, or change by name),
+//! (c) raw pixel maps (as a part, or as `overrides` for a specific frame).
+//! Error messages are in English: Claude reads them and fixes the spec.
 
 use super::color::{Rgba, Tone};
 use serde::Deserialize;
 use serde_json::{json, Value};
 use std::collections::BTreeMap;
 
-/// Mantıksal ızgara: 192×208 hücreye tam bölünür.
+/// Logical grid: divides the 192×208 cell evenly.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Grid {
     pub w: usize,
     pub h: usize,
-    /// Mantıksal pikselin hücredeki boyu (4 ya da 2).
+    /// Size of a logical pixel in the cell (4 or 2).
     pub scale: usize,
 }
 
 impl Grid {
-    /// 48×52 ızgarasına göre büyüklük çarpanı (arketip ölçüleri 48×52'de yazılı).
+    /// Size factor relative to the 48×52 grid (archetype measurements are written for 48×52).
     pub fn k(&self) -> f64 {
         self.w as f64 / 48.0
     }
-    /// Kök koordinatın (zemin, yatay orta) mantıksal ızgaradaki yeri.
+    /// Position of the root coordinate (ground, horizontal center) on the logical grid.
     pub fn origin(&self) -> (f64, f64) {
         (self.w as f64 / 2.0, self.h as f64 - 4.5 * self.k())
     }
@@ -80,8 +80,8 @@ pub enum Show {
     Never,
 }
 
-/// Seviye (b): tek parça. Koordinatlar mantıksal piksel; `on` grubunun merkezine göre
-/// (`root` için zemin ortasına göre), y aşağı artı.
+/// Level (b): a single part. Coordinates are logical pixels, relative to the center of the `on` group
+/// (for `root`, relative to the ground center), y positive downward.
 #[derive(Deserialize, Debug, Clone)]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
 pub struct PartSpec {
@@ -91,16 +91,16 @@ pub struct PartSpec {
     pub shape: ShapeKind,
     #[serde(default)]
     pub role: Role,
-    /// Bağlantı/dönme noktası.
+    /// Attachment/pivot point.
     #[serde(default)]
     pub at: [f64; 2],
-    /// Şeklin merkezi, bağlantı noktasına göre (parçayla birlikte döner).
+    /// The shape's center, relative to the attachment point (rotates with the part).
     #[serde(default)]
     pub offset: [f64; 2],
-    /// Derinlik (+ izleyiciye doğru). Verilmezse `surface` ya da 0.
+    /// Depth (+ toward the viewer). If not given, `surface` or 0.
     #[serde(default)]
     pub z: Option<f64>,
-    /// Grubun ana şeklinin ön yüzeyine yapışık (yüz işaretleri gibi): z otomatik.
+    /// Stuck to the front surface of the group's main shape (like face markings): z is automatic.
     #[serde(default)]
     pub surface: bool,
     #[serde(default)]
@@ -167,12 +167,12 @@ pub enum MouthStyle {
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
 pub struct FaceSpec {
     pub eyes: Option<EyeStyle>,
-    /// Göz merkezleri arası uzaklık.
+    /// Distance between eye centers.
     pub gap: Option<f64>,
-    /// Göz yüksekliği, yüz grubunun merkezine göre.
+    /// Eye height, relative to the face group's center.
     pub y: Option<f64>,
     pub mouth: Option<MouthStyle>,
-    /// Ağzın gözlere göre aşağılığı.
+    /// How far below the eyes the mouth sits.
     pub mouth_drop: Option<f64>,
     pub cheeks: Option<bool>,
     pub brows: Option<bool>,
@@ -201,13 +201,13 @@ pub struct MotionSpec {
     pub bounce: f64,
     #[serde(default = "one")]
     pub sway: f64,
-    /// Koşuda öne eğilme (derece).
+    /// Forward lean when running (degrees).
     #[serde(default = "lean_default")]
     pub lean: f64,
-    /// Yana dönüş üst sınırı (derece); bakışta kafa bunun 0.6'sı, gövde 0.25'i kadar döner.
+    /// Upper limit of sideways turn (degrees); when looking, the head turns 0.6 of it, the body 0.25.
     #[serde(default = "turn_default")]
     pub turn: f64,
-    /// Yukarı/aşağı bakışta kafanın eğilme üst sınırı (derece).
+    /// Upper limit of head tilt when looking up/down (degrees).
     #[serde(default = "pitch_default")]
     pub pitch: f64,
 }
@@ -256,7 +256,7 @@ pub enum OverrideMode {
     Replace,
 }
 
-/// Seviye (c): belirli bir karenin üstüne (ya da yerine) ham piksel haritası.
+/// Level (c): a raw pixel map drawn over (or instead of) a specific frame.
 #[derive(Deserialize, Debug, Clone)]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
 pub struct Override {
@@ -264,7 +264,7 @@ pub struct Override {
     pub frame: usize,
     #[serde(default)]
     pub mode: OverrideMode,
-    /// Haritanın sol üst köşesi, mantıksal ızgarada.
+    /// Top-left corner of the map, on the logical grid.
     #[serde(default)]
     pub at: [i32; 2],
     pub rows: Vec<String>,
@@ -311,7 +311,7 @@ fn archetype_default() -> String {
 
 pub const ARCHETYPES: &[&str] = &["blob", "critter", "floaty", "custom"];
 
-/// Yüz ayarlarının çözülmüş hâli.
+/// Resolved face settings.
 #[derive(Debug, Clone)]
 pub struct Face {
     pub eyes: EyeStyle,
@@ -324,7 +324,7 @@ pub struct Face {
     pub eye_color: Rgba,
 }
 
-/// Çizime hazır karakter: palet, parçalar, yüz, hareket ayarları.
+/// A character ready to draw: palette, parts, face, motion settings.
 #[derive(Debug, Clone)]
 pub struct Character {
     pub id: String,
@@ -336,13 +336,13 @@ pub struct Character {
     pub face: Face,
     pub motion: MotionSpec,
     pub laptop: bool,
-    /// Ayaksız, süzülen karakter (floaty).
+    /// Footless, floating character (floaty).
     pub floats: bool,
     pub overrides: Vec<Override>,
 }
 
 impl Character {
-    /// `body`, `body.shade`, `body.hi` ya da `#RRGGBB`.
+    /// `body`, `body.shade`, `body.hi` or `#RRGGBB`.
     pub fn tone(&self, r: &str) -> Result<Tone, String> {
         resolve_tone(&self.palette, r)
     }
@@ -350,8 +350,8 @@ impl Character {
         resolve_tone(&self.palette, r).map(|t| t.base)
     }
 
-    /// Bütün karakteri zemin ortası etrafında `s` oranında küçültür (hücreye sığdırmak için).
-    /// Piksel haritaları ve yüz desenleri piksel ölçüsünde kalır, yalnız yerleri değişir.
+    /// Shrinks the whole character by factor `s` around the ground center (to fit the cell).
+    /// Pixel maps and face patterns keep their pixel size; only their positions change.
     pub fn shrunk(&self, s: f64) -> Character {
         let mut c = self.clone();
         let m2 = |v: &mut [f64; 2]| {
@@ -381,8 +381,8 @@ impl Character {
         c.face.gap *= s;
         c.face.y *= s;
         c.face.mouth_drop *= s;
-        // Kare override'ları da petle birlikte taşınır: haritanın merkezi zemin ortasına doğru
-        // `s` oranında yaklaşır, haritanın kendisi (piksel boyutu) değişmez.
+        // Frame overrides move with the pet: the map's center moves toward the ground center
+        // by factor `s`; the map itself (pixel size) does not change.
         let (ox, oy) = self.grid.origin();
         for o in &mut c.overrides {
             let w = o.rows.iter().map(|r| r.chars().count()).max().unwrap_or(0) as f64;
@@ -394,14 +394,14 @@ impl Character {
         c
     }
 
-    /// Piksel haritası karakterinin rengi; saydam ya da çözülemeyen karakterde `None`.
+    /// Color of a pixel map character; `None` for transparent or unresolvable characters.
     pub fn pixel(&self, c: char, key: &BTreeMap<String, String>) -> Option<Rgba> {
         pixel_color(c, key, &self.palette).ok().flatten()
     }
 }
 
-/// Piksel haritasındaki bir karakter: `.` ve boşluk saydam (`None`), diğerleri `key` üzerinden
-/// paletten renk. Spec denetimi, parça çizimi ve kare override'ları aynı kuralı kullanır.
+/// A character in a pixel map: `.` and space are transparent (`None`), the others take a palette
+/// color via `key`. Spec checking, part drawing and frame overrides all use the same rule.
 pub fn pixel_color(c: char, key: &BTreeMap<String, String>, palette: &BTreeMap<String, Tone>) -> Result<Option<Rgba>, String> {
     if c == '.' || c == ' ' {
         return Ok(None);
@@ -431,7 +431,7 @@ pub fn resolve_tone(palette: &BTreeMap<String, Tone>, r: &str) -> Result<Tone, S
     }
 }
 
-/// Spec metnini okuyup karakteri kurar.
+/// Parses spec text and builds the character.
 pub fn parse(text: &str) -> Result<Character, String> {
     let spec: Spec = serde_json::from_str(text.trim_start_matches('\u{feff}'))
         .map_err(|e| format!("spec.json: {e}"))?;
@@ -512,7 +512,7 @@ fn build_palette(spec: &Spec) -> Result<BTreeMap<String, Tone>, String> {
     Ok(p)
 }
 
-/// Parçaları ada göre birleştirir: aynı ad varsa alanlar üzerine yazılır, yoksa eklenir.
+/// Merges parts by name: if the name exists its fields are overwritten, otherwise the part is added.
 fn merge_parts(base: Vec<Value>, extra: &[Value], remove: &[String]) -> Result<Vec<Value>, String> {
     let mut out = base;
     for (i, p) in extra.iter().enumerate() {
@@ -523,7 +523,7 @@ fn merge_parts(base: Vec<Value>, extra: &[Value], remove: &[String]) -> Result<V
             return Err(format!("parts[{i}]: 'name' is missing"));
         };
         if let Some(existing) = out.iter_mut().find(|e| e.get("name").and_then(Value::as_str) == Some(name)) {
-            let target = existing.as_object_mut().expect("parça nesne");
+            let target = existing.as_object_mut().expect("part is an object");
             for (k, v) in obj {
                 if v.is_null() {
                     target.remove(k);
@@ -545,7 +545,7 @@ fn merge_parts(base: Vec<Value>, extra: &[Value], remove: &[String]) -> Result<V
     Ok(out)
 }
 
-/// Aynalı parçanın ikizi (x ekseninde yansıtılmış).
+/// The twin of a mirrored part (reflected across the x axis).
 fn mirrored(p: &PartSpec, all: &[PartSpec]) -> PartSpec {
     let mut m = p.clone();
     m.name = format!("{}~mirror", p.name);
@@ -592,7 +592,7 @@ fn check_part(p: &PartSpec, palette: &BTreeMap<String, Tone>) -> Result<(), Stri
         }
         _ => {}
     }
-    // Sıfır ya da eksi kalınlık/derinlik çizimde sıfıra bölme ve boş şekil üretir.
+    // Zero or negative width/depth causes division by zero and empty shapes when drawing.
     let positive = |v: Option<f64>| v.is_none_or(|x| x.is_finite() && x > 0.0);
     if !positive(p.depth) {
         return Err(format!("part '{n}': 'depth' must be a number > 0"));
@@ -734,9 +734,9 @@ fn build(spec: Spec) -> Result<Character, String> {
     })
 }
 
-// --- Arketipler ---------------------------------------------------------------------------
+// --- Archetypes ---------------------------------------------------------------------------
 
-/// Arketipin önerdiği yüz.
+/// The face suggested by the archetype.
 struct FaceDefault {
     eyes: EyeStyle,
     gap: f64,
@@ -747,7 +747,7 @@ struct FaceDefault {
     brows: bool,
 }
 
-/// JSON nesnesindeki sayıları (konum ve ölçü alanları) k ile çarpar.
+/// Multiplies the numbers in a JSON object (position and size fields) by k.
 fn scaled(mut v: Value, k: f64) -> Value {
     fn mul(v: &mut Value, k: f64) {
         match v {
@@ -782,7 +782,7 @@ fn check_choice(what: &str, v: &str, allowed: &[&str]) -> Result<(), String> {
     }
 }
 
-/// Arketipten parça listesi (48×52 ölçüsünde yazılır, ızgaraya göre büyütülür).
+/// Part list from the archetype (written at 48×52 scale, scaled up to the grid).
 fn archetype_parts(spec: &Spec, grid: Grid) -> Result<(Vec<Value>, FaceDefault), String> {
     let o = &spec.options;
     let size = o.size.unwrap_or(1.0);
@@ -859,7 +859,7 @@ fn archetype_parts(spec: &Spec, grid: Grid) -> Result<(Vec<Value>, FaceDefault),
             face = FaceDefault { eyes: EyeStyle::Dot, gap: 11.0, y: 0.5, mouth: MouthStyle::Cat, mouth_drop: 3.5, cheeks: true, brows: false };
         }
         _ => {
-            // floaty: ayaksız, eteği dalgalı, süzülen.
+            // floaty: footless, wavy hem, floating.
             let (w, h) = (28.0 * size, 28.0 * size);
             parts.push(json!({"name": "body", "role": "body", "on": "root", "shape": "ellipse",
                 "at": [0, -9.0 - h / 2.0 - 3.0], "size": [w, h], "color": "body", "gloss": true}));
@@ -1040,7 +1040,7 @@ fn add_accessory(parts: &mut Vec<Value>, kind: &str, on: &str, rx: f64, ry: f64,
     Ok(())
 }
 
-/// Seviye (a) örnek spec'leri `--example` için.
+/// Level (a) example specs for `--example`.
 pub fn example(name: &str) -> Option<&'static str> {
     match name {
         "pitir" => Some(include_str!("../../../../plugin/skills/hatch/examples/pitir.json")),

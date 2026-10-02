@@ -1,4 +1,4 @@
-/* Terminal havası: Claude Code CLI'a benzer koyu, monospace balon. */
+/* Terminal look: a dark, monospace bubble similar to the Claude Code CLI. */
 :root {
   --term-bg: #1a1817;
   --term-fg: #e8e2dc;
@@ -19,7 +19,7 @@ html, body {
   font: 12px/1.45 var(--mono);
 }
 
-/* Pet: kapalıyken pencerenin tamamı; balon açıkken konumu JS verir (ekranda yerinde kalır). */
+/* Pet: fills the window when closed; while the bubble is open, JS sets its position (it stays put on screen). */
 #pet {
   position: absolute;
   top: 0;
@@ -29,22 +29,22 @@ html, body {
   height: 208px;
 }
 
-/* --- Sohbet balonu ------------------------------------------------------ */
+/* --- Chat bubble --------------------------------------------------------- */
 
-/* Konum ve yükseklik JS'ten (balon karakterin görünen sınırına yanaşır). */
+/* Position and height come from JS (the bubble snaps to the character's visible bounds). */
 #panel {
   position: absolute;
   left: 0;
   right: 0;
   padding: 4px 6px 11px;
   box-sizing: border-box;
-  /* Pet hücresinin saydam kenarına biner; tıklamalar balona gitsin. */
+  /* Overlaps the pet cell's transparent margin; clicks should go to the bubble. */
   z-index: 1;
 }
 
 #panel[hidden] { display: none; }
 
-/* Yukarıda yer yoksa balon petin altında. */
+/* With no room above, the bubble sits below the pet. */
 body.below #panel {
   padding: 11px 6px 4px;
 }
@@ -62,7 +62,7 @@ body.below #panel {
   box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
 }
 
-/* Pete bakan kuyruk. */
+/* Tail pointing at the pet. */
 #bubble::after {
   content: "";
   position: absolute;
@@ -82,7 +82,7 @@ body.below #bubble::after {
   transform: translateX(-50%) rotate(225deg);
 }
 
-/* Başlık: kenar çizgisinin üstünde klasör, sağda ikonlar. */
+/* Header: folder above the divider line, icons on the right. */
 header {
   display: flex;
   align-items: center;
@@ -142,7 +142,7 @@ header button:disabled { opacity: 0.35; cursor: default; }
 .msg.busy { color: var(--accent); }
 .msg.note { color: var(--term-dim); font-style: italic; }
 
-/* Cevabın altında katlanmış kaynak listesi. */
+/* Collapsed source list below the reply. */
 .sources {
   margin-top: 3px;
   white-space: normal;
@@ -173,13 +173,13 @@ header button:disabled { opacity: 0.35; cursor: default; }
 
 .sources a:hover span:first-child { text-decoration: underline; }
 
-/* Gerçek alan adı: başlıktan bağımsız, her zaman görünür. */
+/* Real domain: independent of the title, always visible. */
 .sources .host {
   margin-left: 6px;
   color: var(--term-dim);
 }
 
-/* Klasör güven sorusu. */
+/* Folder trust question. */
 .msg.trust {
   padding: 6px 8px;
   border: 1px solid var(--term-line);
@@ -210,7 +210,7 @@ header button:disabled { opacity: 0.35; cursor: default; }
 .msg.trust button:hover { background: var(--term-line); }
 .msg.trust button:first-child { border-color: var(--accent); color: var(--accent); }
 
-/* İstem satırı. */
+/* Prompt line. */
 #form {
   display: flex;
   align-items: flex-start;

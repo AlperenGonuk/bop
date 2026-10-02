@@ -1,16 +1,17 @@
-// Exe konsol alt sistemiyle derlenir: CLI alt komutlarının (`hatch`, `list` ...) çıktısı ve çıkış
-// kodu her kabukta güvenilir gelsin. PowerShell 5.1 "windows" alt sistemli bir exe'yi beklemiyor,
-// `$LASTEXITCODE` boş kalıyordu (kod incelemesi, bulgu 5). Pet penceresi konsol açmaz: `toggle`
-// onu CREATE_NO_WINDOW ile başlatır; Gezgin'den çift tıklanınca açılan konsol hemen bırakılır.
+// The exe is built with the console subsystem so CLI subcommands (`hatch`, `list` ...) report
+// their output and exit code reliably in every shell. PowerShell 5.1 does not wait for a
+// "windows" subsystem exe, so `$LASTEXITCODE` stayed empty (code review, finding 5). The pet
+// window opens no console: `toggle` starts it with CREATE_NO_WINDOW; when double-clicked in
+// Explorer, the console that opens is released right away.
 
 fn main() {
     let args: Vec<String> = std::env::args().collect();
-    // `bop hook [olay]`: pencere açmadan durum dosyasını yaz ve çık.
+    // `bop hook [event]`: write the state file without opening a window, then exit.
     if args.get(1).map(String::as_str) == Some("hook") {
         bop_lib::hook_main(args.get(2).map(String::as_str));
         return;
     }
-    // `bop list | use <id> | install <klasör> | toggle | stop | hatch ...`
+    // `bop list | use <id> | install <folder> | toggle | stop | hatch ...`
     if let Some(code) = bop_lib::cli_main(&args[1..]) {
         std::process::exit(code);
     }
@@ -26,11 +27,11 @@ mod console {
         fn FreeConsole() -> i32;
     }
 
-    /// Konsolu yalnız bu süreç kullanıyorsa (Gezgin'den açıldı) bırakır; pencere kapanır.
-    /// Bir terminalden açıldıysa terminalin konsoluna dokunulmaz.
+    /// Releases the console if only this process uses it (launched from Explorer); the window
+    /// closes. If launched from a terminal, the terminal's console is left alone.
     pub fn release_own() {
         let mut ids = [0u32; 2];
-        // SAFETY: dizi ve boyutu doğru verilir; başarısızlıkta (0) hiçbir şey yapılmaz.
+        // SAFETY: the array and its length are passed correctly; on failure (0) nothing is done.
         unsafe {
             if GetConsoleProcessList(ids.as_mut_ptr(), ids.len() as u32) == 1 {
                 FreeConsole();

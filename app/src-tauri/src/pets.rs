@@ -1,10 +1,12 @@
-//! Kurulu petler, aktif pet seçimi ve tek örnek (KARARLAR.md, 28. karar).
+//! Installed pets, active pet selection and single instance (DECISIONS.md, decision 28).
 //!
-//! - Petler `~/.bop/pets/<id>/` altında; seçim `~/.bop/config.json` (`{"activePet": "<id>"}`).
-//! - Varsayılan pet Pıtır exe'ye gömülüdür, açılışta `pets/pitir/` klasörüne yazılır (içerik
-//!   farklıysa yenilenir). Seçili pet yoksa ya da yüklenemiyorsa Pıtır açılır.
-//! - Tek örnek: çalışan pet `running.json`'a her saniye yazar; taze kayıt varsa ikinci örnek
-//!   açılmaz. Kapatma isteği `control` dosyasıyla iletilir (ek bağımlılık yok).
+//! - Pets live under `~/.bop/pets/<id>/`; the selection is in `~/.bop/config.json`
+//!   (`{"activePet": "<id>"}`).
+//! - The default pet Pitir is embedded in the exe and written to `pets/pitir/` at startup
+//!   (rewritten if the content differs). If no pet is selected or it fails to load, Pitir opens.
+//! - Single instance: the running pet writes `running.json` every second; if a fresh record
+//!   exists, a second instance does not start. A quit request goes through the `control` file
+//!   (no extra dependency).
 
 use crate::state;
 use serde::{Deserialize, Serialize};
@@ -16,9 +18,9 @@ pub const DEFAULT_PET_ID: &str = "pitir";
 const DEFAULT_PET_JSON: &[u8] = include_bytes!("../default-pet/pet.json");
 const DEFAULT_PET_SHEET: &[u8] = include_bytes!("../default-pet/spritesheet.png");
 
-/// Kalp atışı bundan eskiyse pet çalışmıyor sayılır.
+/// If the heartbeat is older than this, the pet is considered not running.
 const HEARTBEAT_FRESH: Duration = Duration::from_secs(3);
-/// `control` dosyasına yazılan kapatma isteği.
+/// Quit request written to the `control` file.
 const QUIT: &str = "quit";
 
 #[derive(Debug, Default, Serialize, Deserialize, PartialEq)]
@@ -43,13 +45,13 @@ pub fn read_config() -> Config {
         .unwrap_or_default()
 }
 
-/// Pet kimliği klasör adı olarak kullanılır: yalnız küçük harf, rakam, `-` ve `_`.
+/// The pet id is used as a folder name: only lowercase letters, digits, `-` and `_`.
 pub fn valid_id(id: &str) -> bool {
     (1..=64).contains(&id.len())
         && id.bytes().all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'-' || b == b'_')
 }
 
-/// Gömülü Pıtır'ı `pets/pitir/` klasörüne yazar; dosya aynıysa dokunmaz.
+/// Writes the embedded Pitir to `pets/pitir/`; leaves identical files untouched.
 pub fn ensure_default_pet() -> Option<PathBuf> {
     let dir = pets_dir()?.join(DEFAULT_PET_ID);
     for (name, bytes) in [("pet.json", DEFAULT_PET_JSON), ("spritesheet.png", DEFAULT_PET_SHEET)] {
@@ -69,8 +71,8 @@ pub struct InstalledPet {
     pub dir: PathBuf,
 }
 
-/// `pets/` altındaki geçerli petler (okunabilen `pet.json`, kimlik klasör adıyla aynı);
-/// Pıtır en başta, diğerleri ada göre.
+/// Valid pets under `pets/` (readable `pet.json`, id equal to the folder name);
+/// Pitir first, the rest by name.
 pub fn list_installed() -> Vec<InstalledPet> {
     let Some(root) = pets_dir() else { return Vec::new() };
     let Ok(entries) = fs::read_dir(&root) else { return Vec::new() };
@@ -93,7 +95,7 @@ pub fn list_installed() -> Vec<InstalledPet> {
     pets
 }
 
-/// Açılacak petin klasörü: seçili pet kuruluysa o, değilse Pıtır.
+/// Folder of the pet to open: the selected pet if installed, otherwise Pitir.
 pub fn active_dir() -> Option<PathBuf> {
     let root = pets_dir()?;
     if let Some(id) = read_config().active_pet.filter(|id| valid_id(id)) {
@@ -105,7 +107,7 @@ pub fn active_dir() -> Option<PathBuf> {
     Some(root.join(DEFAULT_PET_ID))
 }
 
-/// Seçimi yazar; çalışan pet `config.json`'u izler ve yeniden başlatmadan değişir.
+/// Writes the selection; the running pet watches `config.json` and switches without a restart.
 pub fn use_pet(id: &str) -> Result<(), String> {
     if !list_installed().iter().any(|p| p.id == id) {
         return Err(format!("no installed pet with id '{id}' (see: bop list)"));
@@ -117,8 +119,8 @@ pub fn use_pet(id: &str) -> Result<(), String> {
     state::write_atomic(&path, &bytes).map_err(|e| format!("could not write config: {e}"))
 }
 
-/// Yerel bir pet klasörünü doğrulayıp `pets/<id>/` altına kopyalar; kimliği döndürür.
-/// Aynı kimlikte pet varsa yerine geçer. Pıtır'ın üzerine yazılmaz.
+/// Validates a local pet folder and copies it to `pets/<id>/`; returns the id.
+/// Replaces an existing pet with the same id. Pitir is never overwritten.
 pub fn install(src: &Path, known_states: &[&str]) -> Result<String, String> {
     let pet = crate::pet::load_pet(src, known_states)?;
     let id = pet.info.id.clone();
@@ -133,9 +135,9 @@ pub fn install(src: &Path, known_states: &[&str]) -> Result<String, String> {
     let root = pets_dir().ok_or("home directory not found")?;
     let dest = root.join(&id);
     if crate::pet::canonical(&dest).ok().as_deref() == Some(pet.dir.as_path()) {
-        return Ok(id); // zaten kurulu klasörün kendisi
+        return Ok(id); // already the installed folder itself
     }
-    // Önce geçici klasöre kopyala, sonra eskisinin yerine koy: yarım kurulum kalmasın.
+    // Copy to a temp folder first, then swap it in: no half-finished install is left behind.
     let tmp = root.join(format!(".install-{id}-{}", std::process::id()));
     let _ = fs::remove_dir_all(&tmp);
     copy_dir(&pet.dir, &tmp).map_err(|e| {
@@ -149,7 +151,7 @@ pub fn install(src: &Path, known_states: &[&str]) -> Result<String, String> {
     Ok(id)
 }
 
-/// Yalnız normal dosyalar ve klasörler kopyalanır; bağlantılar atlanır.
+/// Only regular files and folders are copied; links are skipped.
 fn copy_dir(src: &Path, dest: &Path) -> std::io::Result<()> {
     fs::create_dir_all(dest)?;
     for entry in fs::read_dir(src)? {
@@ -165,7 +167,7 @@ fn copy_dir(src: &Path, dest: &Path) -> std::io::Result<()> {
     Ok(())
 }
 
-// --- Tek örnek ----------------------------------------------------------------------------
+// --- Single instance ----------------------------------------------------------------------
 
 #[derive(Serialize, Deserialize)]
 struct Heartbeat {
@@ -181,7 +183,7 @@ fn control_path() -> Option<PathBuf> {
     state::home_dir().map(|h| h.join("control"))
 }
 
-/// Çalışan pet her saniye çağırır.
+/// Called by the running pet every second.
 pub fn beat() {
     let hb = Heartbeat { pid: std::process::id(), at: state::now_ms() };
     if let (Some(p), Ok(bytes)) = (heartbeat_path(), serde_json::to_vec(&hb)) {
@@ -189,7 +191,7 @@ pub fn beat() {
     }
 }
 
-/// Başka bir örnek çalışıyor mu (taze kalp atışı, kendi sürecimiz değil).
+/// Whether another instance is running (fresh heartbeat, not our own process).
 pub fn other_instance_running() -> bool {
     heartbeat_path()
         .and_then(|p| fs::read_to_string(p).ok())
@@ -200,20 +202,20 @@ pub fn other_instance_running() -> bool {
         })
 }
 
-/// Pet kapanırken kalp atışını siler.
+/// Removes the heartbeat when the pet closes.
 pub fn clear_heartbeat() {
     if let Some(p) = heartbeat_path() {
         let _ = fs::remove_file(p);
     }
 }
 
-/// Çalışan pete kapanmasını söyler.
+/// Tells the running pet to quit.
 pub fn request_quit() -> Result<(), String> {
     let p = control_path().ok_or("home directory not found")?;
     state::write_atomic(&p, QUIT.as_bytes()).map_err(|e| e.to_string())
 }
 
-/// Kapatma isteği geldiyse dosyayı siler ve `true` döner.
+/// If a quit request arrived, removes the file and returns `true`.
 pub fn take_quit_request() -> bool {
     let Some(p) = control_path() else { return false };
     let asked = fs::read_to_string(&p).is_ok_and(|t| t.trim() == QUIT);
@@ -223,7 +225,7 @@ pub fn take_quit_request() -> bool {
     asked
 }
 
-/// Peti ayrı bir süreç olarak başlatır (bu süreç beklemeden çıkabilir).
+/// Starts the pet as a separate process (this process can exit without waiting).
 pub fn spawn_detached() -> Result<(), String> {
     let exe = std::env::current_exe().map_err(|e| e.to_string())?;
     let mut cmd = std::process::Command::new(exe);
@@ -240,7 +242,7 @@ pub fn spawn_detached() -> Result<(), String> {
     #[cfg(unix)]
     {
         use std::os::unix::process::CommandExt;
-        // Kendi süreç grubu: çağıran kabuk kapanınca pet de kapanmasın.
+        // Own process group: the pet must not close when the calling shell closes.
         cmd.process_group(0);
     }
     cmd.spawn().map(|_| ()).map_err(|e| format!("could not start pet: {e}"))
@@ -251,23 +253,24 @@ mod tests {
     use super::*;
 
     #[test]
-    fn kimlik_yalniz_guvenli_karakterler() {
+    fn id_allows_only_safe_characters() {
         assert!(valid_id("pitir"));
         assert!(valid_id("my_pet-2"));
+        // "ç" is deliberate: a non-ASCII letter must be rejected.
         for bad in ["", "Pitir", "../x", "a/b", "a b", "ç", &"x".repeat(65)] {
-            assert!(!valid_id(bad), "{bad:?} geçmemeli");
+            assert!(!valid_id(bad), "{bad:?} should be rejected");
         }
     }
 
     #[test]
-    fn config_bilinmeyen_alanlari_yok_sayar() {
+    fn config_ignores_unknown_fields() {
         let c: Config = serde_json::from_str(r#"{"activePet":"johnny","other":1}"#).unwrap();
         assert_eq!(c.active_pet.as_deref(), Some("johnny"));
         assert_eq!(serde_json::to_string(&Config::default()).unwrap(), "{}");
     }
 
     #[test]
-    fn gomulu_pet_gecerli() {
+    fn embedded_pet_is_valid() {
         let info = crate::pet::parse_pet_json(std::str::from_utf8(DEFAULT_PET_JSON).unwrap()).unwrap();
         assert_eq!(info.id, DEFAULT_PET_ID);
         assert!(DEFAULT_PET_SHEET.starts_with(b"\x89PNG"));

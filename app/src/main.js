@@ -12,9 +12,9 @@ const win = getCurrentWindow();
 const canvas = document.getElementById("pet");
 const player = new Player(canvas);
 
-// Sürükleme eşiği (piksel): altında kalan hareket tıklama sayılır.
+// Drag threshold (px): movement below it counts as a click.
 const DRAG_THRESHOLD = 4;
-// Pencere bu kadar süre kıpırdamazsa sürükleme bitti sayılır.
+// The drag is considered over once the window stays still this long.
 const DRAG_SETTLE_MS = 220;
 
 let pet = null;
@@ -26,7 +26,7 @@ function log(line) {
 }
 
 function showError(message) {
-  log(`hata: ${message}`);
+  log(`error: ${message}`);
   const box = document.getElementById("error");
   box.textContent = message;
   box.hidden = false;
@@ -36,12 +36,12 @@ function play(name, opts) {
   return player.play(name, pet?.animations[name], opts);
 }
 
-// --- Claude durumu -------------------------------------------------------
+// --- Claude state --------------------------------------------------------
 
 let parents = new Map();
 let clawdState = "idle";
 
-/** Mevcut Claude durumunun animasyonunu oynatır (sürükleme ya da kısa hareket sırasında değil). */
+/** Plays the animation for the current Claude state (not while dragging or during a short move). */
 function showState() {
   if (dragging || !pet || idle?.busy()) return;
   const anim = resolveAnimation(clawdState, pet.stateMapping, pet.animations, parents);
@@ -68,7 +68,7 @@ function setState(name) {
 function applyRecord(record) {
   const next = isStale(record) ? "idle" : record.state;
   if (next === clawdState && !ONE_SHOT.has(next)) return;
-  log(`durum: ${record?.event ?? "-"} → ${next}`);
+  log(`state: ${record?.event ?? "-"} → ${next}`);
   setState(next);
 }
 
@@ -76,9 +76,9 @@ async function setupStates() {
   parents = new Map(await invoke("state_vocabulary"));
   await listen("pet-state", ({ payload }) => applyRecord(payload));
   const initial = await invoke("current_state");
-  // Açılışta bir kerelik durumları (done/failed) tekrar oynatma.
+  // Do not replay one-shot states (done/failed) on startup.
   if (initial && !ONE_SHOT.has(initial.state)) applyRecord(initial);
-  // Uzun süre güncellenmeyen "çalışıyor" durumu idle'a döner.
+  // A "working" state that has not been updated for a long time falls back to idle.
   setInterval(async () => {
     if (clawdState === "idle") return;
     const rec = await invoke("current_state");
@@ -86,7 +86,7 @@ async function setupStates() {
   }, 30 * 1000);
 }
 
-// --- Sürükle-bırak -------------------------------------------------------
+// --- Drag and drop -------------------------------------------------------
 
 let dragging = false;
 let settleTimer = null;
@@ -107,11 +107,11 @@ function setupDrag() {
     dragging = true;
     lastX = null;
     idle?.interrupt();
-    // İşletim sisteminin taşıma döngüsü; bırakılana kadar fare olayları gelmez.
-    win.startDragging().catch((err) => log(`sürükleme başlamadı: ${err}`));
+    // The OS move loop; no mouse events arrive until release.
+    win.startDragging().catch((err) => log(`drag failed to start: ${err}`));
   });
 
-  // Eşiği geçmeyen sol tık: sohbet balonunu aç/kapa.
+  // A left click that stays under the threshold toggles the chat bubble.
   canvas.addEventListener("mouseup", (e) => {
     if (e.button === 0 && down && !dragging) chat.toggle();
     down = null;
@@ -120,7 +120,7 @@ function setupDrag() {
     down = null;
   });
 
-  // Yön ve bitiş pencerenin konum olaylarından çıkarılır.
+  // Direction and end of the drag are derived from the window's move events.
   win.onMoved(({ payload }) => {
     if (!dragging) return;
     if (lastX !== null && payload.x !== lastX) {
@@ -135,7 +135,7 @@ function setupDrag() {
 async function endDrag() {
   dragging = false;
   showState();
-  // Petin ekrandaki sol üst köşesini hatırla (balon açıkken de pet konumu).
+  // Remember the pet's top-left corner on screen (the pet's position even while the bubble is open).
   try {
     const pos = await win.outerPosition();
     const scale = await win.scaleFactor();
@@ -145,11 +145,11 @@ async function endDrag() {
       y: Math.round(pos.y + r.top * scale),
     });
   } catch (e) {
-    log(`konum kaydedilemedi: ${e}`);
+    log(`failed to save position: ${e}`);
   }
 }
 
-// --- Sohbet --------------------------------------------------------------
+// --- Chat ----------------------------------------------------------------
 
 const chat = new Chat(win, {
   onBusy: () => setState("thinking"),
@@ -157,22 +157,22 @@ const chat = new Chat(win, {
   log,
 });
 
-// --- Sağ tık menüsü ------------------------------------------------------
+// --- Right-click menu ----------------------------------------------------
 
 function setupMenu() {
   window.addEventListener("contextmenu", (e) => {
     e.preventDefault();
-    // Yerel menü odağı alabilir; açık sohbet balonu bu yüzden kapanmasın.
+    // The native menu may take focus; don't let that close an open chat bubble.
     chat.keepOpen();
-    invoke("show_menu").catch((err) => log(`menü açılmadı: ${err}`));
+    invoke("show_menu").catch((err) => log(`menu failed to open: ${err}`));
   });
 }
 
-// --- Başlangıç -----------------------------------------------------------
+// --- Startup -------------------------------------------------------------
 
 async function start() {
   setupMenu();
-  // Pet değişti (sağ tık menüsü ya da `bop use`): balonu kapatıp sayfayı baştan kur.
+  // Pet changed (right-click menu or `bop use`): close the bubble and rebuild the page.
   await listen("pet-changed", async () => {
     if (chat.open) await chat.toggle(false);
     location.reload();
@@ -184,14 +184,14 @@ async function start() {
     const counts = Object.fromEntries(
       Object.entries(pet.animations).map(([k, v]) => [k, v.frames.length])
     );
-    log(`${pet.name} v${pet.version} bakış=${pet.hasLook} kareler=${JSON.stringify(counts)}`);
-    log(`boşta hareketler=${JSON.stringify(pet.idleExtras)} ayar=${info.config?.present ? "var" : "yok"}`);
+    log(`${pet.name} v${pet.version} look=${pet.hasLook} frames=${JSON.stringify(counts)}`);
+    log(`idleExtras=${JSON.stringify(pet.idleExtras)} config=${info.config?.present ? "yes" : "no"}`);
     if (info.spriteVersionNumber && info.spriteVersionNumber !== pet.version) {
       pet.warnings.push(
-        `pet.json spriteVersionNumber=${info.spriteVersionNumber}, görsel v${pet.version}; görsele göre devam ediliyor`
+        `pet.json spriteVersionNumber=${info.spriteVersionNumber}, image is v${pet.version}; going by the image`
       );
     }
-    for (const w of pet.warnings) log(`uyarı: ${w}`);
+    for (const w of pet.warnings) log(`warning: ${w}`);
 
     chat.setBounds(pet.bounds);
     setupDrag();

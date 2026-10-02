@@ -1,8 +1,8 @@
-//! Durum köprüsü: hook olayı → `~/.bop/state.json` (KARARLAR.md, 5. ve 6. karar).
+//! State bridge: hook event → `~/.bop/state.json` (DECISIONS.md, decisions 5 and 6).
 //!
-//! Hook alanları Claude Code hook belgesinden doğrulandı (2026-09-30):
-//! ortak `session_id`, `cwd`, `hook_event_name`; araç olaylarında `tool_name`;
-//! Notification'da `notification_type` (`permission_prompt`, `idle_prompt` ...).
+//! Hook fields verified against the Claude Code hooks docs (2026-09-30):
+//! common `session_id`, `cwd`, `hook_event_name`; `tool_name` on tool events;
+//! `notification_type` on Notification (`permission_prompt`, `idle_prompt` ...).
 
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -13,11 +13,11 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 pub const STATE_FORMAT: u32 = 1;
 
-/// Pet'in kendi `claude -p` oturumlarını işaretleyen ortam değişkeni.
-/// Hook süreci Claude'un ortamını devralır.
+/// Environment variable marking the pet's own `claude -p` sessions.
+/// The hook process inherits Claude's environment.
 pub const PET_CHAT_ENV: &str = "BOP_CHAT";
 
-/// Durum sözlüğü (sabit liste). Pet tanımlamadığı durumda `parent` zincirinden düşer.
+/// State vocabulary (fixed list). A state the pet does not define falls back along `parent`.
 pub const STATES: &[(&str, Option<&str>)] = &[
     ("idle", None),
     ("running", Some("idle")),
@@ -41,18 +41,18 @@ pub struct PetState {
     pub session_id: String,
     #[serde(default)]
     pub cwd: String,
-    /// Olay pet'in kendi sohbet oturumundan mı geldi.
+    /// Whether the event came from the pet's own chat session.
     #[serde(default)]
     pub from_pet: bool,
-    /// Kullanıcının (pet dışı) son Claude oturumunun klasörü; pet oturumu bunu ezmez.
-    /// Yeni pet sohbeti bu klasörde açılır (KARARLAR.md, 7. karar).
+    /// Folder of the user's last (non-pet) Claude session; a pet session does not overwrite it.
+    /// A new pet chat opens in this folder (DECISIONS.md, decision 7).
     #[serde(default)]
     pub last_user_cwd: String,
-    /// Unix zamanı, milisaniye.
+    /// Unix time, milliseconds.
     pub updated_at: u64,
 }
 
-/// `~/.bop` (testte `BOP_HOME` ile değiştirilebilir).
+/// `~/.bop` (can be overridden with `BOP_HOME` in tests).
 pub fn home_dir() -> Option<PathBuf> {
     if let Some(h) = std::env::var_os("BOP_HOME") {
         return Some(PathBuf::from(h));
@@ -60,7 +60,7 @@ pub fn home_dir() -> Option<PathBuf> {
     Some(user_home()?.join(".bop"))
 }
 
-/// Kullanıcının ev dizini (`USERPROFILE`, yoksa `HOME`).
+/// The user's home directory (`USERPROFILE`, else `HOME`).
 pub fn user_home() -> Option<PathBuf> {
     std::env::var_os("USERPROFILE").or_else(|| std::env::var_os("HOME")).map(PathBuf::from)
 }
@@ -78,7 +78,7 @@ fn tool_state(tool: &str) -> &'static str {
     }
 }
 
-/// Hook girdisinden durum çıkarır. Pet'i ilgilendirmeyen olayda `None`.
+/// Derives the state from hook input. `None` for events the pet does not care about.
 pub fn state_from_event(input: &Value, event_arg: Option<&str>) -> Option<(String, &'static str)> {
     let event = input
         .get("hook_event_name")
@@ -110,8 +110,8 @@ pub fn now_ms() -> u64 {
         .unwrap_or(0)
 }
 
-/// Atomik yazma: aynı klasörde geçici dosya, sonra üstüne yeniden adlandırma.
-/// Windows'ta okuyucu dosyayı o an açık tutuyorsa birkaç kez yeniden denenir.
+/// Atomic write: temp file in the same folder, then rename over the target.
+/// On Windows it retries a few times if a reader has the file open at that moment.
 pub fn write_atomic(path: &Path, bytes: &[u8]) -> std::io::Result<()> {
     let dir = path.parent().unwrap_or(Path::new("."));
     fs::create_dir_all(dir)?;
@@ -140,15 +140,15 @@ pub fn read_state(path: &Path) -> Option<PetState> {
     serde_json::from_str(&text).ok()
 }
 
-/// `bop hook [olay]`: stdin'deki hook girdisini okur, durum dosyasına yazar.
-/// Her koşulda sessizce döner; çıkış kodu her zaman 0 (Claude Code'u asla bozmaz).
+/// `bop hook [event]`: reads the hook input from stdin and writes the state file.
+/// Always returns silently; the exit code is always 0 (never breaks Claude Code).
 pub fn hook_main(event_arg: Option<&str>) {
     let _ = run_hook(event_arg, &mut std::io::stdin().lock());
 }
 
 pub fn run_hook(event_arg: Option<&str>, stdin: &mut dyn Read) -> Option<PetState> {
     let mut text = String::new();
-    // Girdi küçük; üst sınır, bozuk bir akışta takılmamak için.
+    // The input is small; the cap avoids hanging on a broken stream.
     stdin.take(4 * 1024 * 1024).read_to_string(&mut text).ok()?;
     let input: Value = serde_json::from_str(text.trim_start_matches('\u{feff}')).ok()?;
     let (event, state) = state_from_event(&input, event_arg)?;
@@ -188,7 +188,7 @@ mod tests {
     }
 
     #[test]
-    fn olaylar_durumlara_eslenir() {
+    fn events_map_to_states() {
         assert_eq!(st(json!({"hook_event_name":"PreToolUse","tool_name":"Edit"})), Some("writing-code"));
         assert_eq!(st(json!({"hook_event_name":"PreToolUse","tool_name":"Grep"})), Some("reading"));
         assert_eq!(st(json!({"hook_event_name":"PreToolUse","tool_name":"Bash"})), Some("running-command"));
@@ -205,27 +205,27 @@ mod tests {
     }
 
     #[test]
-    fn olay_adi_girdide_yoksa_argumandan_alinir() {
+    fn event_name_falls_back_to_argument() {
         assert_eq!(state_from_event(&json!({}), Some("Stop")).map(|(_, s)| s), Some("done"));
         assert_eq!(state_from_event(&json!({}), None), None);
     }
 
     #[test]
-    fn her_durumun_zinciri_idle_ile_biter() {
+    fn every_state_chain_ends_at_idle() {
         for (name, _) in STATES {
             let mut cur = *name;
             let mut steps = 0;
             while let Some(parent) = STATES.iter().find(|(n, _)| *n == cur).and_then(|(_, p)| *p) {
                 cur = parent;
                 steps += 1;
-                assert!(steps < 10, "{name} zinciri döngüye giriyor");
+                assert!(steps < 10, "{name} chain has a cycle");
             }
             assert_eq!(cur, "idle", "{name}");
         }
     }
 
     #[test]
-    fn atomik_yazma_ve_okuma() {
+    fn atomic_write_and_read() {
         let dir = std::env::temp_dir().join(format!("bop-test-{}", std::process::id()));
         let path = dir.join("state.json");
         let rec = PetState {
@@ -240,17 +240,17 @@ mod tests {
             updated_at: 1,
         };
         write_atomic(&path, &serde_json::to_vec(&rec).unwrap()).unwrap();
-        // Var olan dosyanın üstüne yazılabilmeli.
+        // Must be able to overwrite an existing file.
         let rec2 = PetState { state: "done".into(), event: "Stop".into(), ..rec };
         write_atomic(&path, &serde_json::to_vec(&rec2).unwrap()).unwrap();
         assert_eq!(read_state(&path), Some(rec2));
-        // Geride geçici dosya kalmamalı.
+        // No temp file should be left behind.
         assert_eq!(fs::read_dir(&dir).unwrap().count(), 1);
         let _ = fs::remove_dir_all(&dir);
     }
 
     #[test]
-    fn bozuk_girdi_sessizce_yok_sayilir() {
-        assert!(run_hook(Some("Stop"), &mut "bu json değil".as_bytes()).is_none());
+    fn broken_input_is_silently_ignored() {
+        assert!(run_hook(Some("Stop"), &mut "this is not json".as_bytes()).is_none());
     }
 }

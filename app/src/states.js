@@ -1,6 +1,6 @@
-// Durum → animasyon çözümleme. Sözlük ve üst durum zinciri Rust'tan gelir (state.rs).
+// State → animation resolution. The vocabulary and parent-state chain come from Rust (state.rs).
 
-// bop.json yokken Codex satırlarıyla varsayılan eşleme (KARARLAR.md, 8. karar).
+// Default mapping onto Codex rows when there is no bop.json (DECISIONS.md, decision 8).
 export const CODEX_DEFAULT_STATES = {
   idle: "idle",
   running: "running",
@@ -10,16 +10,16 @@ export const CODEX_DEFAULT_STATES = {
   failed: "failed",
 };
 
-// Bir kez oynayıp idle'a dönen durumlar.
+// States that play once and then return to idle.
 export const ONE_SHOT = new Set(["done", "failed"]);
 
-// Bu kadar eski bir "çalışıyor" durumu (ör. çöken oturum) idle sayılır.
+// A "working" state this old (e.g. from a crashed session) counts as idle.
 export const STALE_MS = 10 * 60 * 1000;
 
 /**
- * Durumu oynatılacak animasyona çevirir.
- * mapping: { durum: animasyonAdı }, animations: { animasyonAdı: {...} }, parents: Map(durum → üst).
- * Pet durumu tanımlamıyorsa ya da animasyonu yoksa üst duruma düşer; en sonda "idle".
+ * Turns a state into the animation to play.
+ * mapping: { state: animationName }, animations: { animationName: {...} }, parents: Map(state → parent).
+ * If the pet does not define the state or lacks its animation, falls back to the parent; finally "idle".
  */
 export function resolveAnimation(state, mapping, animations, parents) {
   const seen = new Set();

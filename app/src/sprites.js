@@ -1,18 +1,18 @@
-// Codex spritesheet okuyucu. Ayrıntı: docs/SPRITE.md
+// Codex spritesheet reader. Details: docs/SPRITE.md
 
 export const CELL_W = 192;
 export const CELL_H = 208;
 export const COLS = 8;
-// v2 nötr ön poz hücresi: satır 0, sütun 6.
+// v2 neutral front pose cell: row 0, column 6.
 export const NEUTRAL_COL = 6;
 
-// Sürüm görsel boyutundan anlaşılır (KARARLAR.md, 3. karar).
+// The version is detected from the image size (DECISIONS.md, decision 3).
 const VERSIONS = [
   { version: 1, width: 1536, height: 1872, rows: 9 },
   { version: 2, width: 1536, height: 2288, rows: 11 },
 ];
 
-// Codex satır adları. look satırları yalnız v2'de var.
+// Codex row names. The look rows exist only in v2.
 export const ROW_NAMES = [
   "idle", "running-right", "running-left", "waving", "jumping",
   "failed", "waiting", "running", "review", "look-a", "look-b",
@@ -22,17 +22,17 @@ export function detectVersion(width, height) {
   return VERSIONS.find((v) => v.width === width && v.height === height) ?? null;
 }
 
-/** Görseli URL'den yükler (tarayıcı nesnesi olarak). */
+/** Loads an image from a URL (as a browser Image object). */
 export async function loadImage(url) {
   const img = new Image();
-  // Asset protokolü pencere origin'ine CORS izni verir; canvas okunabilir kalır.
+  // The asset protocol grants CORS to the window origin, so the canvas stays readable.
   img.crossOrigin = "anonymous";
   img.src = url;
   await img.decode();
   return img;
 }
 
-/** Görseli yükler, sürümü bulur ve her satırın dolu karelerini çıkarır. */
+/** Loads the image, detects its version and extracts the non-empty frames of each row. */
 export async function loadSheet(url) {
   const img = await loadImage(url);
 
@@ -45,8 +45,8 @@ export async function loadSheet(url) {
   }
 
   const rows = rowFrames(img, ver.rows);
-  // v2'de (0,6) hücresi idle karesi değil, nötr ön pozdur (Codex `neutralLookFrame`,
-  // docs/SPRITE.md). idle döngüsünden çıkarılır.
+  // In v2, cell (0,6) is not an idle frame but the neutral front pose (Codex `neutralLookFrame`,
+  // docs/SPRITE.md). It is removed from the idle loop.
   let neutralFrame = null;
   if (ver.version >= 2) {
     const i = rows[0].findIndex((f) => f.x === NEUTRAL_COL * CELL_W);
@@ -61,10 +61,10 @@ export async function loadSheet(url) {
   return {
     image: img,
     version: ver.version,
-    // v1'de bakış satırı yok: fareye bakma sessizce kapalı.
+    // v1 has no look rows: looking at the cursor is silently off.
     hasLook,
     neutralFrame,
-    // 16 yön, 0° yukarı, saat yönünde 22.5° adım (satır 9: 0-157.5°, satır 10: 180-337.5°; 180° = aşağı).
+    // 16 directions, 0° up, clockwise in 22.5° steps (row 9: 0-157.5°, row 10: 180-337.5°; 180° = down).
     lookFrames: hasLook
       ? Array.from({ length: 16 }, (_, i) => ({ x: (i % COLS) * CELL_W, y: (9 + Math.floor(i / COLS)) * CELL_H }))
       : [],
@@ -73,8 +73,8 @@ export async function loadSheet(url) {
 }
 
 /**
- * Ek sheet (bop.json): aynı ızgara, hücre 192×208, en fazla 8 sütun, satır sayısı serbest.
- * Uymazsa hata fırlatır; çağıran uyarıya çevirip atlar.
+ * Extra sheet (bop.json): same grid, 192×208 cells, at most 8 columns, any number of rows.
+ * Throws if it does not fit; the caller turns that into a warning and skips it.
  */
 export async function loadExtraSheet(url) {
   const img = await loadImage(url);
@@ -85,7 +85,7 @@ export async function loadExtraSheet(url) {
   return { image: img, rows: rowFrames(img, h / CELL_H) };
 }
 
-/** Her satırın dolu karelerini döner: [[{x, y}, ...], ...] */
+/** Returns the non-empty frames of each row: [[{x, y}, ...], ...] */
 export function rowFrames(img, rowCount) {
   const canvas = document.createElement("canvas");
   canvas.width = img.naturalWidth;
@@ -94,7 +94,7 @@ export function rowFrames(img, rowCount) {
   ctx.drawImage(img, 0, 0);
   const alpha = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
 
-  // Ek sheet'ler 8 sütundan dar olabilir; görsel dışındaki hücre taranmaz.
+  // Extra sheets may be narrower than 8 columns; cells outside the image are not scanned.
   const cols = Math.min(COLS, Math.floor(canvas.width / CELL_W));
   const rows = [];
   for (let row = 0; row < rowCount; row++) {
@@ -110,9 +110,9 @@ export function rowFrames(img, rowCount) {
 }
 
 /**
- * Karelerdeki görünen alanın hücre içindeki dikey sınırları: { top, bottom } (hücre pikseli).
- * Balonu karakterin hemen üstüne/altına yanaştırmak için (hücrenin saydam kenarı boşluk yapmasın).
- * Hiç belirgin piksel yoksa (ör. çok soluk kareler) null: çağıran bu görseli atlar.
+ * Vertical bounds of the visible area of the frames within the cell: { top, bottom } (cell pixels).
+ * Used to snap the bubble right above/below the character (so the cell's transparent margin adds no gap).
+ * Returns null if there are no clearly visible pixels (e.g. very faint frames): the caller skips this image.
  */
 export function contentBounds(img, frames) {
   const canvas = document.createElement("canvas");
@@ -138,7 +138,7 @@ export function contentBounds(img, frames) {
   return top < bottom ? { top, bottom } : null;
 }
 
-// Alfa kanalı tamamen 0 olan hücre boş sayılır.
+// A cell whose alpha channel is entirely 0 counts as empty.
 function cellIsEmpty(data, sheetWidth, col, row) {
   const x0 = col * CELL_W;
   const y0 = row * CELL_H;

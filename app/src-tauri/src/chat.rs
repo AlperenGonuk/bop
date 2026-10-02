@@ -1,23 +1,25 @@
-//! Pet sohbeti: ayrı bir `claude -p` oturumu (KARARLAR.md, 7. karar).
+//! Pet chat: a separate `claude -p` session (DECISIONS.md, decision 7).
 //!
-//! - İlk mesaj `claude -p --output-format json`, sonrakiler `--resume <id>`.
-//! - Yalnız okuyan araçlar, dosya YA DA web (KARARLAR.md, 18–20. karar):
-//!   - güvenilen klasörde `Read,Glob,Grep`, web yok: okunan dosya bir arama sorgusuyla dışarı
-//!     taşınamasın;
-//!   - güvenilmeyen sohbette yalnız `WebSearch` (`--allowedTools` ile izinsiz) ve süreç boş
-//!     `~/.bop/chat` klasöründe çalışır: güvenilmeyen klasörün `.claude/settings.json`
-//!     hook'ları ve CLAUDE.md'si hiç yüklenmez.
-//!   Başka her izin sorusu `--permission-prompts none` ile reddedilir (çalışma klasörü dışını
-//!   okumak dahil). Güven yeni sohbetin ilk mesajından önce balonda sorulur; proje klasörü
-//!   bilinmiyorsa sohbet doğrudan boş klasörde, güvenilmeyen olarak başlar. `WebFetch` hiç yok.
-//!   MCP araçları `--disallowedTools "mcp__*"` ile kapalı.
-//! - `--append-system-prompt`: Claude balonda olduğunu ve neyi yapamadığını bilsin; yoksa araç
-//!   çağrısını düz metin olarak yazıyor. Talimat sohbetin ilk isteğinde kaydedilir, `--resume`
-//!   ile devam eden eski sohbetler eskisini kullanır (CLI belgesi).
-//! - Mesaj stdin'den verilir (npm'in `claude.cmd` sarmalayıcısında tırnak sorunu olmasın).
-//! - Windows'ta konsol penceresi açılmaz (CREATE_NO_WINDOW).
-//! - Oturum klasörü açılışta sabitlenir; "Open in terminal" sonrası pet o oturuma yazmaz.
-//! CLI bayrakları Claude Code CLI belgesinden doğrulandı (2026-09-30, 2026-10-01).
+//! - The first message runs `claude -p --output-format json`, later ones `--resume <id>`.
+//! - Read-only tools, files OR web (DECISIONS.md, decisions 18-20):
+//!   - in a trusted folder `Read,Glob,Grep` and no web, so a file that was read can't be
+//!     carried out in a search query;
+//!   - in an untrusted chat only `WebSearch` (permitted via `--allowedTools`), and the process
+//!     runs in the empty `~/.bop/chat` folder: the untrusted folder's `.claude/settings.json`
+//!     hooks and CLAUDE.md are never loaded.
+//!   Every other permission prompt is denied with `--permission-prompts none` (including reads
+//!   outside the working folder). Trust is asked in the bubble before a new chat's first
+//!   message; if the project folder is unknown, the chat starts directly in the empty folder as
+//!   untrusted. `WebFetch` is never available. MCP tools are disabled with
+//!   `--disallowedTools "mcp__*"`.
+//! - `--append-system-prompt`: lets Claude know it is in a bubble and what it can't do;
+//!   otherwise it writes tool calls as plain text. The prompt is stored with the chat's first
+//!   request; older chats continued with `--resume` keep their old one (CLI docs).
+//! - The message is passed via stdin (avoids quoting issues in npm's `claude.cmd` wrapper).
+//! - No console window opens on Windows (CREATE_NO_WINDOW).
+//! - The session folder is fixed at start; after "Open in terminal" the pet no longer writes
+//!   to that session.
+//! CLI flags verified against the Claude Code CLI docs (2026-09-30, 2026-10-01).
 
 use crate::state;
 use serde::{Deserialize, Serialize};
@@ -26,16 +28,16 @@ use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 use std::time::{Duration, Instant};
 
-/// Bir mesaja verilen en uzun süre.
+/// Maximum time allowed for one message.
 const CHAT_TIMEOUT: Duration = Duration::from_secs(300);
 
-/// Pette kullanılabilen araçlar: güvenilen klasörde yalnız dosya okuma, güvenilmeyende yalnız
-/// web araması; ikisi aynı oturumda hiç birlikte olmaz (KARARLAR.md, 20. karar).
+/// Tools available in the pet: only file reads in a trusted folder, only web search in an
+/// untrusted one; the two are never combined in one session (DECISIONS.md, decision 20).
 const TRUSTED_TOOLS: &str = "Read,Glob,Grep";
 const UNTRUSTED_TOOLS: &str = "WebSearch";
 
-// Sistem talimatına eklenen not. `claude.cmd` üzerinden geçtiği için çift tırnak, `%`, `!`,
-// `^`, `&`, `<`, `>`, `|` içermez (testte denetlenir).
+// Note appended to the system prompt. Since it passes through `claude.cmd`, it must not
+// contain double quotes, `%`, `!`, `^`, `&`, `<`, `>` or `|` (checked by a test).
 const PROMPT_HEAD: &str = "You are answering inside the small chat bubble of a desktop pet, \
 not in a terminal. The bubble shows only a few lines, so answer like a friend in a chat: \
 one to three short sentences of plain text. No markdown, no headings, no bullet lists, \
@@ -69,10 +71,11 @@ fn pet_prompt(trusted: bool) -> String {
 #[cfg(windows)]
 const CREATE_NO_WINDOW: u32 = 0x0800_0000;
 
-/// Pet bir Claude Code oturumunun içinden başlatılınca (ör. `/bop`) o oturuma ait
-/// değişkenleri devralır. Pet'in açtığı `claude` bunları görünce kendini alt oturum sanar:
-/// transkript kaydı kapanır (`--resume` bozulur), renkler kapanır. Bunlar oturuma özeldir;
-/// kullanıcının kalıcı ayarları (ör. `CLAUDE_CODE_USE_BEDROCK`) listede yoktur.
+/// When the pet is launched from inside a Claude Code session (e.g. `/bop`), it inherits that
+/// session's variables. Seeing them, the `claude` started by the pet thinks it is a subsession:
+/// transcript saving is turned off (breaking `--resume`) and colors are disabled. These are
+/// session-specific; the user's persistent settings (e.g. `CLAUDE_CODE_USE_BEDROCK`) are not
+/// in the list.
 const INHERITED_SESSION_VARS: &[&str] = &[
     "CLAUDECODE",
     "CLAUDE_CODE_CHILD_SESSION",
@@ -84,10 +87,10 @@ const INHERITED_SESSION_VARS: &[&str] = &[
     "CLAUDE_PID",
 ];
 
-/// Devralınan Claude oturum değişkenlerini süreç ortamından siler.
-/// `NO_COLOR` yalnız bir Claude oturumundan devralındığı anlaşılıyorsa silinir
-/// (Claude'un shell aracı koyar; kullanıcının kendi ayarıysa dokunulmaz).
-/// Diğer iş parçacıkları başlamadan, açılışta bir kez çağrılmalı.
+/// Removes inherited Claude session variables from the process environment.
+/// `NO_COLOR` is removed only when it evidently came from a Claude session
+/// (Claude's shell tool sets it; if it is the user's own setting, it is left alone).
+/// Must be called once at startup, before other threads start.
 pub fn clean_inherited_env() {
     let from_claude = std::env::var_os("CLAUDECODE").is_some()
         || std::env::var_os("CLAUDE_CODE_CHILD_SESSION").is_some();
@@ -102,15 +105,15 @@ pub fn clean_inherited_env() {
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct ChatSession {
-    /// Claude oturum kimliği; ilk cevaptan sonra dolar.
+    /// Claude session ID; filled in after the first reply.
     pub session_id: Option<String>,
-    /// Oturumun sabit klasörü.
+    /// The session's fixed folder.
     pub cwd: Option<String>,
-    /// Terminale devredildi mi (evetse pet bu oturuma yazmaz).
+    /// Whether it was handed off to a terminal (if so, the pet no longer writes to this session).
     #[serde(default)]
     pub handed_off: bool,
-    /// Klasöre güveniliyor mu: `None` henüz sorulmadı (ilk mesajdan önce balon sorar),
-    /// `Some(true)` dosya okuma açık, `Some(false)` yalnız web araması.
+    /// Whether the folder is trusted: `None` not asked yet (the bubble asks before the first
+    /// message), `Some(true)` file reads enabled, `Some(false)` web search only.
     #[serde(default)]
     pub trusted: Option<bool>,
 }
@@ -120,7 +123,7 @@ pub struct ChatSession {
 pub struct ChatReply {
     pub text: String,
     pub is_error: bool,
-    /// Kayıtlı oturum bulunamadı, cevap yeni (bağlamsız) bir oturumdan geldi.
+    /// The saved session wasn't found; the reply came from a new session (without context).
     pub new_session: bool,
     pub session: ChatSession,
 }
@@ -148,15 +151,15 @@ pub fn reset_session() -> ChatSession {
     s
 }
 
-/// Proje klasörü bilinmiyorsa sohbetin çalıştığı boş klasör (`~/.bop/chat`).
-/// İçinde okunacak bir şey yok; ev dizini hiçbir zaman kendiliğinden çalışma klasörü olmaz.
+/// Empty folder the chat runs in when the project folder is unknown (`~/.bop/chat`).
+/// There is nothing to read in it; the home folder never becomes the working folder by default.
 fn neutral_cwd() -> String {
     let dir = state::home_dir().map(|h| h.join("chat")).unwrap_or_else(|| PathBuf::from("."));
     let _ = std::fs::create_dir_all(&dir);
     dir.to_string_lossy().into_owned()
 }
 
-/// Yeni sohbetin klasörü: kullanıcının son Claude oturumu, yoksa boş pet klasörü.
+/// Folder for a new chat: the user's last Claude session folder, else the empty pet folder.
 fn default_cwd() -> String {
     state::state_path()
         .and_then(|p| state::read_state(&p))
@@ -165,12 +168,12 @@ fn default_cwd() -> String {
         .unwrap_or_else(neutral_cwd)
 }
 
-/// Kullanıcının ev dizini (balon başlığında "~" kısaltması ve ev klasörü uyarısı için).
+/// The user's home folder (for the "~" shorthand in the bubble header and the home folder warning).
 pub fn user_home() -> Option<String> {
     state::user_home().map(|p| p.to_string_lossy().into_owned())
 }
 
-// --- Güvenilen klasörler (~/.bop/trusted.json) ---------------------------------------
+// --- Trusted folders (~/.bop/trusted.json) -------------------------------------------
 
 #[derive(Default, Serialize, Deserialize)]
 struct TrustList {
@@ -182,7 +185,7 @@ fn trust_path() -> Option<PathBuf> {
     state::home_dir().map(|h| h.join("trusted.json"))
 }
 
-/// Windows yolları: büyük/küçük harf, ayraç ve sondaki ayraç farkı önemsiz.
+/// Windows paths: case, separator and trailing separator differences don't matter.
 fn norm_folder(p: &str) -> String {
     p.replace('/', "\\").trim_end_matches('\\').to_lowercase()
 }
@@ -210,8 +213,8 @@ fn remember_trusted(cwd: &str) {
     }
 }
 
-/// Yeni oturumun güven durumu: boş pet klasöründe sorulmaz (okunacak dosya yok, araç da
-/// açılmaz), daha önce güvenilen klasörde sorulmaz, diğerlerinde balon sorar.
+/// Trust state of a new session: not asked in the empty pet folder (no files to read, no file
+/// tools enabled) or in a previously trusted folder; otherwise the bubble asks.
 fn initial_trust(cwd: &str) -> Option<bool> {
     if norm_folder(cwd) == norm_folder(&neutral_cwd()) {
         Some(false)
@@ -222,9 +225,9 @@ fn initial_trust(cwd: &str) -> Option<bool> {
     }
 }
 
-/// Kullanıcının cevabı: güvenirse klasör kalıcı olarak hatırlanır; güvenmezse sohbet boş pet
-/// klasörüne taşınır (güvenilmeyen klasörün ayarları, hook'ları ve CLAUDE.md'si yüklenmesin).
-/// Soru bir oturumda bir kez cevaplanır; sonraki cevaplar (ör. çift tık) yok sayılır.
+/// The user's answer: if trusted, the folder is remembered permanently; if not, the chat moves
+/// to the empty pet folder (so the untrusted folder's settings, hooks and CLAUDE.md don't load).
+/// The question is answered once per session; later answers (e.g. a double click) are ignored.
 pub fn set_trust(trust: bool) -> ChatSession {
     let mut s = active_session();
     if s.trusted.is_some() {
@@ -242,7 +245,7 @@ pub fn set_trust(trust: bool) -> ChatSession {
     s
 }
 
-/// Aktif oturum; terminale devredildiyse yenisi başlar (klasör şimdi sabitlenir).
+/// Active session; if it was handed off to a terminal, a new one starts (its folder is fixed now).
 pub fn active_session() -> ChatSession {
     let s = load_session();
     if s.handed_off || s.cwd.is_none() {
@@ -260,8 +263,8 @@ pub fn active_session() -> ChatSession {
     }
 }
 
-/// `claude` yürütülebilir dosyası: `BOP_CLAUDE`, yoksa PATH'te
-/// `claude.exe` (yerel kurulum) ya da `claude.cmd` (npm).
+/// The `claude` executable: `BOP_CLAUDE`, else `claude.exe` (native install) or
+/// `claude.cmd` (npm) on PATH.
 fn claude_program() -> Result<PathBuf, String> {
     if let Some(p) = std::env::var_os("BOP_CLAUDE") {
         return Ok(PathBuf::from(p));
@@ -294,7 +297,8 @@ pub fn chat_args(session_id: Option<&str>, trusted: bool) -> Vec<String> {
         .iter()
         .map(|s| s.to_string())
         .collect();
-    // İzin isteyen tek araç WebSearch, yalnız güvenilmeyen (dosyasız) sohbette açılır.
+    // WebSearch, the only tool that needs permission, is enabled only in an untrusted
+    // (file-less) chat.
     if !trusted {
         a.extend(["--allowedTools".into(), "WebSearch".into()]);
     }
@@ -311,7 +315,7 @@ pub fn chat_args(session_id: Option<&str>, trusted: bool) -> Vec<String> {
     a
 }
 
-/// `claude -p` JSON çıktısından cevap metni, hata bayrağı ve oturum kimliği.
+/// Reply text, error flag and session ID from `claude -p` JSON output.
 pub fn parse_output(stdout: &str) -> Option<(String, bool, Option<String>)> {
     let v: serde_json::Value = serde_json::from_str(stdout.trim()).ok()?;
     let text = v.get("result").and_then(|r| r.as_str()).unwrap_or("").to_string();
@@ -320,13 +324,14 @@ pub fn parse_output(stdout: &str) -> Option<(String, bool, Option<String>)> {
     Some((text, is_error, sid))
 }
 
-/// Oturum kimliği yalnız UUID karakterleri içerebilir (komut satırına gider).
+/// A session ID may contain only UUID characters (it goes on the command line).
 pub fn valid_session_id(id: &str) -> bool {
     !id.is_empty() && id.len() <= 64 && id.chars().all(|c| c.is_ascii_hexdigit() || c == '-')
 }
 
-/// `--resume` edilen oturum diskte yoksa (silinmiş, ya da transkript kaydı kapalıyken açılmış).
-/// Yalnız başarısız çalışmaya bakılır: başarılı bir cevabın metni bu ifadeyi içerebilir.
+/// Whether the `--resume`d session is missing on disk (deleted, or created while transcript
+/// saving was off). Only failed runs are checked: a successful reply's text may contain the
+/// phrase.
 fn is_unknown_session(ok: bool, stdout: &str, stderr: &str) -> bool {
     let failed = !ok || parse_output(stdout).map_or(true, |(_, is_error, _)| is_error);
     failed && (stdout.contains("No conversation found") || stderr.contains("No conversation found"))
@@ -334,25 +339,26 @@ fn is_unknown_session(ok: bool, stdout: &str, stderr: &str) -> bool {
 
 pub fn send(message: &str) -> Result<ChatReply, String> {
     let mut session = active_session();
-    // Güven sorusu cevaplanmadan dosya araçlarıyla ya da onlarsız başlamak yok: talimat
-    // sohbetin ilk isteğinde kaydedilir, sonradan değişmez.
+    // Don't start, with or without file tools, before the trust question is answered: the
+    // prompt is stored with the chat's first request and can't change later.
     let Some(trusted) = session.trusted else {
         return Err("First answer the folder question in the bubble".into());
     };
-    // Güvenilmeyen sohbet hiçbir zaman başka bir klasörde çalışmaz (eski kayıtlar dahil).
+    // An untrusted chat never runs in any other folder (including old saved sessions).
     let cwd = if trusted {
         session.cwd.clone().unwrap_or_else(default_cwd)
     } else {
         neutral_cwd()
     };
     let program = claude_program()?;
-    // Yeniden deneme dahil toplam süre sınırı.
+    // Total time limit, including the retry.
     let deadline = Instant::now() + CHAT_TIMEOUT;
 
     let (mut ok, mut code, mut stdout, mut stderr) =
         run_claude(&program, session.session_id.as_deref(), trusted, &cwd, message, deadline)?;
-    // Kayıtlı oturum bulunamadıysa bir kez yeni oturumla dene (klasör aynı kalır).
-    // Ölü kimlik hemen silinir: deneme de başarısız olursa sonraki mesaj yine iki kez çalışmasın.
+    // If the saved session wasn't found, retry once with a new session (same folder).
+    // The dead ID is cleared right away, so if the retry also fails, the next message doesn't
+    // run twice again.
     let mut new_session = false;
     if session.session_id.is_some() && is_unknown_session(ok, &stdout, &stderr) {
         session.session_id = None;
@@ -377,7 +383,7 @@ pub fn send(message: &str) -> Result<ChatReply, String> {
     }
 }
 
-/// `claude -p` çalıştırır: (başarılı mı, çıkış kodu, stdout, stderr).
+/// Runs `claude -p`: (success, exit code, stdout, stderr).
 fn run_claude(
     program: &Path,
     session_id: Option<&str>,
@@ -399,7 +405,7 @@ fn run_claude(
     if let Some(mut stdin) = child.stdin.take() {
         let _ = stdin.write_all(message.as_bytes());
     }
-    // Çıktıları ayrı iş parçacıklarında oku; boru dolup takılmasın.
+    // Read the outputs on separate threads so a full pipe doesn't block.
     let mut out = child.stdout.take().unwrap();
     let mut err = child.stderr.take().unwrap();
     let out_t = std::thread::spawn(move || {
@@ -429,8 +435,8 @@ fn run_claude(
     Ok((status.success(), status.code().unwrap_or(-1), stdout, stderr))
 }
 
-/// Yalnız http(s) adresleri; boşluk ve kontrol karakteri yok (komut satırına gider).
-/// Bağlantı açma şimdilik yalnız Windows'ta; öbür platformlarda yalnız testler kullanır.
+/// Only http(s) URLs, with no whitespace or control characters (it goes on the command line).
+/// Opening links is Windows-only for now; on other platforms only the tests use this.
 #[cfg_attr(not(windows), allow(dead_code))]
 pub fn valid_url(url: &str) -> bool {
     (url.starts_with("https://") || url.starts_with("http://"))
@@ -438,15 +444,15 @@ pub fn valid_url(url: &str) -> bool {
         && !url.chars().any(|c| c.is_whitespace() || c.is_control() || c == '"')
 }
 
-/// Kaynak bağlantısını varsayılan tarayıcıda açar.
+/// Opens a source link in the default browser.
 #[cfg(windows)]
 pub fn open_url(url: &str) -> Result<(), String> {
     if !valid_url(url) {
         return Err("invalid URL".into());
     }
-    // url.dll'in işleyicisi komut satırının kalanını olduğu gibi alır: explorer.exe gibi virgülden
-    // bölmez, kabuk da olmadığı için `&` gibi karakterler komut sayılmaz. Adres ham verilir
-    // (valid_url boşluk ve tırnağı zaten reddeder).
+    // url.dll's handler takes the rest of the command line as is: unlike explorer.exe it doesn't
+    // split on commas, and with no shell involved, characters like `&` aren't treated as
+    // commands. The URL is passed raw (valid_url already rejects whitespace and quotes).
     use std::os::windows::process::CommandExt;
     Command::new("rundll32.exe")
         .arg("url.dll,FileProtocolHandler")
@@ -461,7 +467,7 @@ pub fn open_url(_url: &str) -> Result<(), String> {
     Err("opening links only works on Windows for now".into())
 }
 
-/// Oturumu yeni bir terminalde `claude --resume <id>` ile açar ve devreder.
+/// Opens the session in a new terminal with `claude --resume <id>` and hands it off.
 pub fn open_in_terminal() -> Result<ChatSession, String> {
     let mut session = load_session();
     let id = session.session_id.clone().filter(|i| valid_session_id(i));
@@ -474,19 +480,21 @@ pub fn open_in_terminal() -> Result<ChatSession, String> {
     Ok(session)
 }
 
-/// "Yeni pet yap" ile gönderilen ilk mesaj: kullanıcının mesajı olarak görünür, `hatch` skill'i
-/// bu isteği açıklamasından tanır (komut adı göstermemek için düz cümle).
+/// First message sent by "Make a new pet": it shows up as the user's message, and the `hatch`
+/// skill recognizes the request from its description (a plain sentence, so no command name is
+/// shown).
 const HATCH_PROMPT: &str = "Let's make a new Bop pet!";
 
-/// Pet oluşturma: yeni terminalde, boş `~/.bop/hatch` klasöründe `claude "<HATCH_PROMPT>"`
-/// (KARARLAR.md, 28. karar). Yazan iş terminalde, kullanıcının gözü önünde yapılır.
+/// Pet creation: `claude "<HATCH_PROMPT>"` in a new terminal, in the empty `~/.bop/hatch`
+/// folder (DECISIONS.md, decision 28). Work that writes files happens in the terminal, in
+/// plain view of the user.
 pub fn open_hatch_terminal() -> Result<(), String> {
     let dir = state::home_dir().ok_or("home folder not found")?.join("hatch");
     std::fs::create_dir_all(&dir).map_err(|e| format!("couldn't create {}: {e}", dir.display()))?;
     spawn_claude_terminal(&dir.to_string_lossy(), &[HATCH_PROMPT])
 }
 
-/// Yeni bir terminalde `claude <args>` başlatır.
+/// Starts `claude <args>` in a new terminal.
 fn spawn_claude_terminal(cwd: &str, args: &[&str]) -> Result<(), String> {
     let program = std::env::var("BOP_CLAUDE").unwrap_or_else(|_| "claude".into());
     spawn_terminal(cwd, &program, args)
@@ -494,9 +502,9 @@ fn spawn_claude_terminal(cwd: &str, args: &[&str]) -> Result<(), String> {
 
 #[cfg(windows)]
 fn spawn_terminal(cwd: &str, program: &str, args: &[&str]) -> Result<(), String> {
-    // Klasör komut satırına yazılmaz (adında `&` gibi cmd karakterleri olabilir);
-    // süreç doğrudan o klasörde başlatılır, yeni terminal klasörü devralır.
-    // Windows Terminal varsa onu, yoksa yeni bir konsol penceresi.
+    // The folder isn't put on the command line (its name may contain cmd characters like `&`);
+    // the process starts directly in that folder and the new terminal inherits it.
+    // Uses Windows Terminal if available, else a new console window.
     let wt = Command::new("wt.exe")
         .current_dir(cwd)
         .args(["-d", ".", "cmd", "/k", program])
@@ -525,14 +533,15 @@ mod tests {
     }
 
     #[test]
-    fn guvenilen_klasorde_yalniz_dosya_okuma_web_yok() {
+    fn trusted_folder_allows_only_file_reads_no_web() {
         let a = chat_args(None, true);
         assert_eq!(after(&a, "--tools").as_deref(), Some("Read,Glob,Grep"));
-        // Dosya okuyan oturumda izinsiz çalışan araç yok: okunan içerik aramayla dışarı çıkamaz.
+        // No tool runs without permission in a file-reading session: content that was read
+        // can't leak out through a search.
         assert!(!a.contains(&"--allowedTools".to_string()));
         assert_eq!(after(&a, "--permission-prompts").as_deref(), Some("none"));
         for tool in ["Bash", "Edit", "Write", "WebFetch", "WebSearch"] {
-            assert!(!TRUSTED_TOOLS.split(',').any(|t| t == tool), "{tool} açık olmamalı");
+            assert!(!TRUSTED_TOOLS.split(',').any(|t| t == tool), "{tool} must not be enabled");
         }
         assert!(!a.contains(&"--resume".to_string()));
         let b = chat_args(Some("abc-123"), true);
@@ -540,44 +549,46 @@ mod tests {
     }
 
     #[test]
-    fn guvenilmeyen_sohbette_yalniz_web_aramasi() {
+    fn untrusted_chat_allows_only_web_search() {
         let a = chat_args(None, false);
         assert_eq!(after(&a, "--tools").as_deref(), Some("WebSearch"));
         assert_eq!(after(&a, "--allowedTools").as_deref(), Some("WebSearch"));
         let prompt = after(&a, "--append-system-prompt").unwrap();
         assert!(prompt.contains("cannot read files"));
         assert!(!prompt.contains("Read, Glob"));
-        // Talimattaki düğme adları balondakilerle aynı.
+        // Button names in the prompt match the ones in the bubble.
         assert!(prompt.contains("Open in terminal"));
         assert!(pet_prompt(true).contains("Don't trust"));
     }
 
     #[test]
-    fn talimatta_cmd_ozel_karakteri_yok() {
-        // claude.cmd üzerinden geçer: cmd'nin özel karakterleri olmamalı.
+    fn prompt_has_no_cmd_special_chars() {
+        // It passes through claude.cmd, so it must not contain cmd special characters.
         for trusted in [true, false] {
             assert!(!pet_prompt(trusted).contains(['"', '%', '!', '^', '&', '<', '>', '|']));
         }
     }
 
     #[test]
-    fn klasor_yollari_karsilastirilir() {
+    fn folder_paths_are_compared() {
         assert_eq!(norm_folder("D:/Claude-Pet/"), norm_folder("d:\\claude-pet"));
         assert_ne!(norm_folder("D:\\claude-pet"), norm_folder("D:\\claude-pet2"));
     }
 
     #[test]
-    fn json_cikti_ayristirilir() {
+    fn json_output_is_parsed() {
         let (t, e, s) = parse_output(
             r#"{"type":"result","is_error":false,"result":"Merhaba","session_id":"5f0c-aa"}"#,
         )
         .unwrap();
         assert_eq!((t.as_str(), e, s.as_deref()), ("Merhaba", false, Some("5f0c-aa")));
+        // Plain non-JSON text (Turkish test data).
         assert!(parse_output("düz metin").is_none());
     }
 
     #[test]
-    fn kayip_oturum_yalniz_basarisiz_calismada_aranir() {
+    fn missing_session_is_checked_only_on_failed_runs() {
+        // A successful reply that merely mentions the phrase (Turkish test data).
         let ok_reply = r#"{"is_error":false,"result":"'No conversation found' şu demek...","session_id":"ab"}"#;
         assert!(!is_unknown_session(true, ok_reply, ""));
         assert!(is_unknown_session(false, "", "No conversation found with session ID: ab"));
@@ -587,7 +598,7 @@ mod tests {
     }
 
     #[test]
-    fn yalniz_http_adresleri_acilir() {
+    fn only_http_urls_are_opened() {
         assert!(valid_url("https://www.cnnturk.com/hava-durumu-istanbul/?a=1&b=2"));
         assert!(!valid_url("file:///C:/Windows/System32/calc.exe"));
         assert!(!valid_url("calc.exe"));
@@ -596,7 +607,7 @@ mod tests {
     }
 
     #[test]
-    fn oturum_kimligi_dogrulanir() {
+    fn session_id_is_validated() {
         assert!(valid_session_id("550e8400-e29b-41d4-a716-446655440000"));
         assert!(!valid_session_id("x & calc"));
         assert!(!valid_session_id(""));

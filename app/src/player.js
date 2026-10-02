@@ -1,4 +1,4 @@
-// Animasyon oynatıcı: tek canvas, aynı anda tek animasyon.
+// Animation player: one canvas, one animation at a time.
 import { CELL_W, CELL_H } from "./sprites.js";
 
 export const DEFAULT_FRAME_MS = 150;
@@ -17,7 +17,7 @@ export class Player {
 
   /**
    * anim: { image, frames: [{x, y}], frameMs }
-   * loop=false ise son karede durur ve onDone çağrılır.
+   * With loop=false it stops on the last frame and calls onDone.
    */
   play(name, anim, { loop = true, onDone } = {}) {
     if (!anim?.frames?.length) return false;
@@ -42,7 +42,7 @@ export class Player {
     return true;
   }
 
-  /** Tek kare gösterir (ör. imlece bakış); döngüyü durdurur. */
+  /** Shows a single frame (e.g. looking at the cursor); stops the loop. */
   still(key, image, frame) {
     if (this.current === key) return;
     this.stop();

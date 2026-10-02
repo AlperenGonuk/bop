@@ -12,7 +12,7 @@ the same format as Codex pets.
   <img src="docs/images/bop-brand.png" alt="Bop, a desktop pet for Claude Code — Pitir the mandarin mascot at a computer" width="960">
 </p>
 
-The default pet is Pıtır, a small mandarin drawn entirely by Bop's own drawing engine.
+The default pet is Pitir, a small mandarin drawn entirely by Bop's own drawing engine.
 
 > **Status:** early release (0.1.0). Windows is the most tested platform; macOS and Linux builds
 > are produced by CI but have had little real-world use. Please report problems in
@@ -142,7 +142,7 @@ Questions, bugs and security reports: [GitHub Issues](https://github.com/Alperen
 
 ## License
 
-[MIT](LICENSE). Pıtır and the other bundled example pets are part of this project and use the
+[MIT](LICENSE). Pitir and the other bundled example pets are part of this project and use the
 same license.
 
 Bop is an independent project. It is not affiliated with, endorsed by or sponsored by

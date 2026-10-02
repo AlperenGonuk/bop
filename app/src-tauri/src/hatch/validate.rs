@@ -1,8 +1,8 @@
-//! Deterministik doğrulama. İki katman:
-//! - `check_atlas`: herhangi bir v2 spritesheet (boyut, dolu/boş hücreler, saydamlık, kırpılma,
-//!   durağan satır, (0,6) nötr, kopuk parça, bakış sürekliliği ve taban çizgisi).
-//! - `check_semantics`: motorun kareleri (göz etiketleri) üzerinden yön ölçümü: bakış yönü ve
-//!   koşu yönü koordinattan ölçülür.
+//! Deterministic validation. Two layers:
+//! - `check_atlas`: any v2 spritesheet (size, filled/empty cells, transparency, clipping,
+//!   static rows, the (0,6) neutral, detached pieces, look continuity and baseline).
+//! - `check_semantics`: direction checks on the engine's frames (eye tags): look direction and
+//!   run direction are measured from coordinates.
 
 use super::atlas::{Image, CELL_H, CELL_W, COLS, SHEET_H, SHEET_W};
 use super::motion::{look_angle, LOOK_ROW, NEUTRAL_CELL, ROWS};
@@ -34,13 +34,13 @@ fn warn(code: &'static str, row: Option<usize>, frame: Option<usize>, message: S
     Issue { level: Level::Warning, code, row, frame, message }
 }
 
-/// Bir hücrenin ölçüleri.
+/// Measurements of one cell.
 #[derive(Clone, Debug, Default)]
 struct CellStat {
     opaque: usize,
     residue: usize,
     edge: usize,
-    /// (x0, y0, x1, y1) dahil, hücre pikseli.
+    /// (x0, y0, x1, y1) inclusive, in cell pixels.
     bbox: Option<(usize, usize, usize, usize)>,
 }
 
@@ -78,7 +78,7 @@ fn cell_bytes(img: &Image, col: usize, row: usize) -> Vec<u8> {
     v
 }
 
-/// 8-komşulukla opak bileşen sayısı (küçük kırıntılar dahil).
+/// Number of opaque 8-connected components (small specks included).
 fn components(img: &Image, col: usize, row: usize) -> usize {
     let (ox, oy) = (col * CELL_W, row * CELL_H);
     let mut seen = vec![false; CELL_W * CELL_H];
@@ -115,7 +115,7 @@ fn expected_used(row: usize, col: usize) -> bool {
     col < ROWS[row].frames || (row, col) == NEUTRAL_CELL
 }
 
-/// Görsel düzeyinde doğrulama (motor dışı spritesheet'lerde de çalışır).
+/// Image-level validation (also works on spritesheets not made by the engine).
 pub fn check_atlas(img: &Image) -> Vec<Issue> {
     let mut out = Vec::new();
     if (img.w, img.h) != (SHEET_W, SHEET_H) {
@@ -157,14 +157,14 @@ pub fn check_atlas(img: &Image) -> Vec<Issue> {
             }
             stats[r][c] = s;
         }
-        // Durağan satır: bütün kareler aynıysa hareket yok.
+        // Static row: if every frame is identical, there is no motion.
         if row.frames > 1 && r < LOOK_ROW {
             let first = cell_bytes(img, 0, r);
             if (1..row.frames).all(|c| cell_bytes(img, c, r) == first) {
                 out.push(err("static-row", Some(r), None, format!("all {} frames of '{}' are identical", row.frames, row.name)));
             }
         }
-        // Kopuk parçalar (efektler pete değmeli).
+        // Detached pieces (effects should touch the pet).
         for c in 0..row.frames {
             let n = components(img, c, r);
             if n > 1 {
@@ -172,7 +172,7 @@ pub fn check_atlas(img: &Image) -> Vec<Issue> {
             }
         }
     }
-    // Bakış: nötrden farklı, taban sabit, ardışık yönler arasında sıçrama yok.
+    // Look: differs from neutral, baseline fixed, no jumps between consecutive directions.
     let neutral = cell_bytes(img, NEUTRAL_CELL.1, NEUTRAL_CELL.0);
     let nstat = &stats[NEUTRAL_CELL.0][NEUTRAL_CELL.1];
     let look_cell = |i: usize| (LOOK_ROW + i / 8, i % 8);
@@ -207,7 +207,7 @@ pub fn check_atlas(img: &Image) -> Vec<Issue> {
     out
 }
 
-/// Etiketli piksellerin ağırlık merkezi (mantıksal piksel).
+/// Centroid of the tagged pixels (logical pixels).
 fn centroid(f: &Frame, tags: &[u8]) -> Option<(f64, f64)> {
     let (mut sx, mut sy, mut n) = (0.0, 0.0, 0.0);
     for y in 0..f.h {
@@ -222,8 +222,8 @@ fn centroid(f: &Frame, tags: &[u8]) -> Option<(f64, f64)> {
     (n > 0.0).then(|| (sx / n, sy / n))
 }
 
-/// Yön semantiği: bakış karelerinde gözler gerçekten o yöne kaymış mı, koşuda doğru yöne
-/// bakıyor mu. `frames[row][col]` motorun mantıksal kareleri, `neutral` (0,6) karesi.
+/// Direction semantics: do the eyes really move that way in the look frames, and does the pet
+/// face the right way when running. `frames[row][col]` are the engine's logical frames, `neutral` is the (0,6) frame.
 pub fn check_semantics(frames: &[Vec<Frame>], neutral: &Frame) -> Vec<Issue> {
     let mut out = Vec::new();
     let Some(n_eye) = centroid(neutral, &[TAG_EYE]) else {
@@ -242,7 +242,7 @@ pub fn check_semantics(frames: &[Vec<Frame>], neutral: &Frame) -> Vec<Issue> {
         let (ex, ey) = (a.sin(), a.cos());
         let (dx, dy) = (e.0 - n_eye.0, -(e.1 - n_eye.1));
         if i % 4 == 0 {
-            // Ana yönler: ana eksende en az 1 mantıksal piksel, doğru işaret, baskın.
+            // Cardinal directions: at least 1 logical pixel on the main axis, correct sign, dominant.
             let (main, cross) = if ex.abs() > 0.5 { (dx * ex.signum(), dy) } else { (dy * ey.signum(), dx) };
             if main < 1.0 || cross.abs() > main {
                 out.push(err(
@@ -259,7 +259,7 @@ pub fn check_semantics(frames: &[Vec<Frame>], neutral: &Frame) -> Vec<Issue> {
                 out.push(warn("look-direction", Some(r), Some(c), format!("look {deg}: eyes moved ({dx:+.1}, {dy:+.1}) px (right, up); not in the expected quadrant")));
             }
         }
-        // Hiyerarşi: gözler gövdeden çok kaymalı.
+        // Hierarchy: the eyes should move more than the body.
         if i % 8 == 4 {
             if let (Some(nb), Some(b)) = (n_body, centroid(&frames[r][c], &[TAG_BODY, TAG_HEAD])) {
                 let bx = b.0 - nb.0;
@@ -269,7 +269,7 @@ pub fn check_semantics(frames: &[Vec<Frame>], neutral: &Frame) -> Vec<Issue> {
             }
         }
     }
-    // Koşu yönü.
+    // Run direction.
     for (row, sign) in [(1usize, 1.0f64), (2, -1.0)] {
         for (c, f) in frames[row].iter().enumerate() {
             match centroid(f, &[TAG_EYE]) {
@@ -287,7 +287,7 @@ pub fn check_semantics(frames: &[Vec<Frame>], neutral: &Frame) -> Vec<Issue> {
     out
 }
 
-/// Otomatik küçültme bildirimi.
+/// Auto-shrink notice.
 pub fn fit_warning(scale: f64, fits: bool) -> Issue {
     let pct = (scale * 100.0).round();
     if fits {

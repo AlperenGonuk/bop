@@ -1,5 +1,5 @@
-# cmd betikleri CRLF olmalı (LF ile cmd etiket ve satır ayrıştırmasında hata yapabilir).
+# cmd scripts must be CRLF (with LF, cmd can misparse labels and lines).
 *.cmd text eol=crlf
 *.bat text eol=crlf
-# POSIX sh betikleri LF olmali (CRLF ile sh "\r" hatasi verir).
+# POSIX sh scripts must be LF (with CRLF, sh fails on "\r").
 *.sh text eol=lf

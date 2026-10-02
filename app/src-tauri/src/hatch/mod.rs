@@ -1,8 +1,8 @@
-//! `bop hatch`: API'siz, kodla pet çizimi (KARARLAR.md 22, 27).
+//! `bop hatch`: draws a pet in code, without an API (DECISIONS.md, decisions 22, 27).
 //!
-//! `bop hatch <spec.json> <çıktı-klasörü>` → `pet.json`, `spritesheet.png` (v2 atlas),
-//! `contact-sheet.png` (QA için etiketli), `report.json`. Pencere açmaz.
-//! Çıkış kodu: 0 sorunsuz, 2 doğrulama hatası (dosyalar yine yazılır), 1 spec/girdi hatası.
+//! `bop hatch <spec.json> <output-folder>` → `pet.json`, `spritesheet.png` (v2 atlas),
+//! `contact-sheet.png` (labeled, for QA), `report.json`. Opens no window.
+//! Exit code: 0 clean, 2 validation errors (files are still written), 1 spec/input error.
 
 mod atlas;
 mod color;
@@ -24,15 +24,15 @@ const USAGE: &str = "usage:
   bop hatch --docs <name>                 print a reference (spec-format, qa-rubric, animation-rows)
   bop hatch --check <spritesheet.png>     validate an existing v2 spritesheet";
 
-/// Skill'in referansları exe'ye gömülü: Claude onları plugin klasörünü okuma izni istemeden,
-/// skill'in izin verdiği tek komutla (`bop hatch --docs`) okur. Kaynak plugin'deki dosyalar.
+/// The skill's references are embedded in the exe: Claude reads them with the one command the
+/// skill allows (`bop hatch --docs`), without asking to read the plugin folder. Source: the plugin's files.
 const DOCS: &[(&str, &str)] = &[
     ("spec-format", include_str!("../../../../plugin/skills/hatch/references/spec-format.md")),
     ("qa-rubric", include_str!("../../../../plugin/skills/hatch/references/qa-rubric.md")),
     ("animation-rows", include_str!("../../../../plugin/skills/hatch/references/animation-rows.md")),
 ];
 
-/// Çizim sonucu: atlas, mantıksal kareler ve sorunlar (kareler testlerde okunur).
+/// Drawing result: atlas, logical frames and issues (tests read the frames).
 #[cfg_attr(not(test), allow(dead_code))]
 pub struct Hatched {
     pub sheet: Image,
@@ -54,9 +54,10 @@ fn apply_override(f: &mut Frame, ch: &Character, o: &spec::Override) {
     }
 }
 
-/// Karakterin bütün karelerini çizer, atlası kurar ve doğrular. Pet (gövde ya da parçaları)
-/// hücreden taşarsa karakter zemin ortası etrafında adım adım küçültülür (en çok %80'e), uyarı
-/// olarak bildirilir. Yalnız override taşıyorsa küçültülmez: hata override'ı taşımayı söyler.
+/// Draws every frame of the character, builds the atlas and validates it. If the pet (body or
+/// parts) overflows the cell, the character is shrunk step by step around the ground center (down
+/// to 80% at most), reported as a warning. If only an override overflows, nothing is shrunk: the
+/// error says to move the override.
 pub fn hatch(ch: &Character) -> Hatched {
     let mut base = base_frames(ch);
     if !any_clipped(&base) {
@@ -78,14 +79,14 @@ pub fn hatch(ch: &Character) -> Hatched {
     h
 }
 
-/// Küçültmeden tek deneme (testler taşmayı bununla görür).
+/// A single attempt without shrinking (tests use this to see overflow).
 #[cfg(test)]
 fn hatch_once(ch: &Character) -> Hatched {
     finish(ch, &base_frames(ch))
 }
 
-/// Kare hücre kenarına değiyor mu (mantıksal ızgara hücreyi tam kaplar: kenar pikseli = hücrenin
-/// kenardaki 2 pikseli, `validate::check_atlas`'taki "clipped" denetimiyle aynı).
+/// Whether the frame touches the cell edge (the logical grid covers the cell exactly: an edge pixel =
+/// the cell's 2 edge pixels, same as the "clipped" check in `validate::check_atlas`).
 fn touches_edge(f: &Frame) -> bool {
     (0..f.h).any(|y| (0..f.w).any(|x| (x == 0 || y == 0 || x + 1 == f.w || y + 1 == f.h) && !f.px[y * f.w + x].is_clear()))
 }
@@ -94,7 +95,7 @@ fn any_clipped(frames: &[Vec<Frame>]) -> bool {
     frames.iter().flatten().any(touches_edge)
 }
 
-/// Satırların override'sız kareleri (zıplama yüksekliği hücreye göre seçilir).
+/// The rows' frames without overrides (jump height is chosen to fit the cell).
 fn base_frames(ch: &Character) -> Vec<Vec<Frame>> {
     let (jump, jumping) = jump_frames(ch);
     ROWS.iter()
@@ -111,15 +112,15 @@ fn base_frames(ch: &Character) -> Vec<Vec<Frame>> {
 
 const JUMP_ROW: usize = 4;
 
-/// Zıplama yüksekliği: 9'dan 0.5 adımla inen adaylardan, bütün kareleri hücrenin üstünden en az
-/// k piksel aşağıda kalan en yükseği (hiçbiri sığmazsa 1). Yükseklik arttıkça tepe yükseldiği
-/// için ikili arama yeter. Seçilen yüksekliğin kareleri de döner (yeniden çizilmesin).
+/// Jump height: of the candidates descending from 9 in 0.5 steps, the highest whose frames all stay
+/// at least k pixels below the top of the cell (1 if none fits). The top rises as height grows, so a
+/// binary search is enough. Also returns the frames for the chosen height (so they aren't redrawn).
 fn jump_frames(ch: &Character) -> (f64, Vec<Frame>) {
     let k = ch.grid.k();
     let top_of = |f: &Frame| (0..f.h).find(|&y| (0..f.w).any(|x| !f.px[y * f.w + x].is_clear())).unwrap_or(0);
     let draw = |j: f64| -> Vec<Frame> { motion::row_poses(ch, JUMP_ROW, j).iter().map(|p| rig::render(ch, p)).collect() };
     let fits = |fs: &[Frame]| fs.iter().all(|f| top_of(f) as f64 >= k);
-    // Adaylar: 9, 8.5, ..., 1.5; sonuncusu (1) denetimsiz kabul.
+    // Candidates: 9, 8.5, ..., 1.5; the last one (1) is accepted unchecked.
     const LAST: usize = 16;
     let jump_at = |i: usize| 9.0 - 0.5 * i as f64;
     let (mut lo, mut hi) = (0usize, LAST);
@@ -135,12 +136,12 @@ fn jump_frames(ch: &Character) -> (f64, Vec<Frame>) {
         }
     }
     let jump = jump_at(lo);
-    // `best` her zaman son sığan denemenin (`hi`, döngü sonunda `lo`) kareleridir.
+    // `best` always holds the frames of the last attempt that fit (`hi`, which is `lo` after the loop).
     let frames = best.unwrap_or_else(|| draw(jump));
     (jump, frames)
 }
 
-/// Override'ları uygular, atlası kurar ve doğrular. `base` override'sız karelerdir.
+/// Applies overrides, builds the atlas and validates it. `base` is the frames without overrides.
 fn finish(ch: &Character, base: &[Vec<Frame>]) -> Hatched {
     let g = ch.grid;
     let mut frames: Vec<Vec<Frame>> = base.to_vec();
@@ -161,7 +162,7 @@ fn finish(ch: &Character, base: &[Vec<Frame>]) -> Hatched {
 
     let mut issues = validate::check_atlas(&sheet);
     issues.extend(validate::check_semantics(&frames, &neutral));
-    // Kenara yalnız override değiyorsa küçültme işe yaramaz: mesaj override'ı gösterir.
+    // If only an override touches the edge, shrinking won't help: the message points at the override.
     for i in issues.iter_mut().filter(|i| i.code == "clipped") {
         let (Some(r), Some(c)) = (i.row, i.frame) else { continue };
         let b = if (r, c) == NEUTRAL_CELL { &base[0][0] } else { &base[r][c] };
@@ -261,7 +262,7 @@ fn run_check(path: &Path) -> Result<i32, String> {
     Ok(if errors == 0 { 0 } else { 2 })
 }
 
-/// `bop hatch ...` komut satırı; çıkış kodunu döner.
+/// The `bop hatch ...` command line; returns the exit code.
 pub fn cli(args: &[String]) -> i32 {
     let a: Vec<&str> = args.iter().map(String::as_str).collect();
     let result = match a.as_slice() {

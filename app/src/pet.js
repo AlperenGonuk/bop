@@ -1,14 +1,14 @@
-// Pet derleme: ana sheet + bop.json (ek sheet'ler, isimli animasyonlar,
-// durum eşlemesi, boşta hareketler). Hatalı giriş atlanır ve uyarı olur; pet bozulmaz.
+// Pet assembly: main sheet + bop.json (extra sheets, named animations,
+// state mapping, idle moves). Bad entries are skipped with a warning; the pet never breaks.
 import { loadSheet, loadExtraSheet, contentBounds, CELL_H } from "./sprites.js";
 import { CODEX_DEFAULT_STATES } from "./states.js";
 import { DEFAULT_FRAME_MS } from "./player.js";
 
 const { convertFileSrc } = window.__TAURI__.core;
 
-// Etrafa bakma: nötr → sağ → nötr → sol → nötr → kısa yukarı süzme → nötr.
-// Bakış indeksi i = i × 22.5°, 0° yukarı, 90° sağ, 270° sol (docs/SPRITE.md). "N" nötr pozdur
-// (v2 (0,6) hücresi). Yalnız ön yarım daire (−90°…+90°): 180° eski petlerde arkadan görünüş.
+// Look around: neutral → right → neutral → left → neutral → quick glance up → neutral.
+// Look index i = i × 22.5°, 0° up, 90° right, 270° left (docs/SPRITE.md). "N" is the neutral pose
+// (v2 cell (0,6)). Front half-circle only (−90°…+90°): 180° is a back view on older pets.
 const LOOK_AROUND = [
   "N", "N", 3, 4, 4, 4, 4, 3, "N",
   13, 12, 12, 12, 12, 13, "N",
@@ -17,8 +17,8 @@ const LOOK_AROUND = [
 const LOOK_FRAME_MS = 160;
 
 /**
- * info: pet_info komutunun çıktısı (config dahil).
- * Döner: { name, version, hasLook, lookFrames, neutralFrame, image, animations, stateMapping, idleExtras, warnings }
+ * info: output of the pet_info command (including config).
+ * Returns: { name, version, hasLook, lookFrames, neutralFrame, image, animations, stateMapping, idleExtras, warnings }
  */
 export async function buildPet(info) {
   const config = info.config ?? {};
@@ -28,46 +28,46 @@ export async function buildPet(info) {
 
   const animations = {};
   for (const [name, anim] of Object.entries(sheet.animations)) {
-    if (name.startsWith("look-")) continue; // bakış satırları ayrıca: lookFrames
+    if (name.startsWith("look-")) continue; // look rows are handled separately: lookFrames
     animations[name] = { ...anim, frameMs };
   }
 
-  // Ek sheet'ler.
+  // Extra sheets.
   const extra = {};
   for (const [name, path] of Object.entries(config.sheets ?? {})) {
     try {
       extra[name] = await loadExtraSheet(convertFileSrc(path));
     } catch (e) {
-      warnings.push(`sheets.${name}: ${e.message ?? e}, atlandı`);
+      warnings.push(`sheets.${name}: ${e.message ?? e}, skipped`);
     }
   }
 
-  // İsimli animasyonlar (Codex satırlarını da ezebilir).
+  // Named animations (may also override Codex rows).
   for (const [name, def] of Object.entries(config.animations ?? {})) {
     const src =
       def.sheet === "main"
         ? { image: sheet.image, rows: mainRows(sheet) }
         : extra[def.sheet];
     if (!src) {
-      warnings.push(`animations.${name}: '${def.sheet}' yüklenemedi, atlandı`);
+      warnings.push(`animations.${name}: '${def.sheet}' failed to load, skipped`);
       continue;
     }
     const frames = src.rows[def.row];
     if (!frames) {
-      warnings.push(`animations.${name}: satır ${def.row} yok (${src.rows.length} satır), atlandı`);
+      warnings.push(`animations.${name}: row ${def.row} does not exist (${src.rows.length} rows), skipped`);
       continue;
     }
     if (!frames.length) {
-      warnings.push(`animations.${name}: satır ${def.row} boş, atlandı`);
+      warnings.push(`animations.${name}: row ${def.row} is empty, skipped`);
       continue;
     }
     animations[name] = { image: src.image, frames, frameMs: def.frameMs ?? frameMs };
   }
 
-  // Nötr ön poz: v2'de (0,6) hücresi; yoksa (v1 ya da boş hücre) idle'ın ilk karesi.
+  // Neutral front pose: cell (0,6) in v2; otherwise (v1 or empty cell) the first idle frame.
   const neutralFrame = sheet.neutralFrame ?? sheet.animations.idle?.frames[0] ?? null;
 
-  // Etrafa bakma: yalnız v2 (v1'de sessizce yok). Nötr pozla başlar ve biter.
+  // Look around: v2 only (silently absent in v1). Starts and ends with the neutral pose.
   if (sheet.hasLook && neutralFrame) {
     animations.look = {
       image: sheet.image,
@@ -78,14 +78,14 @@ export async function buildPet(info) {
 
   const stateMapping = { ...CODEX_DEFAULT_STATES, ...(config.states ?? {}) };
   for (const [state, anim] of Object.entries(config.states ?? {})) {
-    if (!animations[anim]) warnings.push(`states.${state}: '${anim}' animasyonu yok, üst duruma düşülecek`);
+    if (!animations[anim]) warnings.push(`states.${state}: no '${anim}' animation, falling back to the parent state`);
   }
 
   const wanted = config.idleExtras ?? (sheet.hasLook ? ["look"] : []);
   const idleExtras = wanted.filter((name) => {
     if (animations[name]) return true;
-    // v1'de "look" sessizce düşer (KARARLAR.md, 3. karar).
-    if (name !== "look" || sheet.hasLook) warnings.push(`idleExtras: '${name}' animasyonu yok, atlandı`);
+    // In v1 "look" is dropped silently (DECISIONS.md, decision 3).
+    if (name !== "look" || sheet.hasLook) warnings.push(`idleExtras: no '${name}' animation, skipped`);
     return false;
   });
 
@@ -99,17 +99,17 @@ export async function buildPet(info) {
     animations,
     stateMapping,
     idleExtras,
-    // Karakterin hücre içindeki görünen sınırları; balon buna yanaşır. Tüm animasyonlar
-    // (her biri kendi sheet'iyle) hesaba katılır: balon açıkken oynayan hiçbir kare örtülmesin.
+    // Visible bounds of the character within its cell; the bubble snaps to them. All animations
+    // (each with its own sheet) are included, so the open bubble never covers any frame.
     bounds: animationBounds(animations),
     warnings,
   };
 }
 
-// Bütün animasyonların görünen alanlarının birleşimi: { top, bottom } (hücre pikseli).
-// Aynı hücre birden çok animasyonda geçebilir (ör. "look", "sheet": "main"); her hücre bir kez taranır.
+// Union of the visible areas of all animations: { top, bottom } (cell pixels).
+// The same cell can appear in several animations (e.g. "look", "sheet": "main"); each cell is scanned once.
 function animationBounds(animations) {
-  const cells = new Map(); // görsel → { "x,y": kare }
+  const cells = new Map(); // image → { "x,y": frame }
   for (const anim of Object.values(animations)) {
     if (!cells.has(anim.image)) cells.set(anim.image, new Map());
     const byPos = cells.get(anim.image);
@@ -120,22 +120,22 @@ function animationBounds(animations) {
   for (const [image, byPos] of cells) {
     if (!byPos.size) continue;
     const b = contentBounds(image, [...byPos.values()]);
-    if (!b) continue; // yalnız soluk kareler: balonun yerini etkilemesin
+    if (!b) continue; // only faint frames: should not affect the bubble's position
     top = Math.min(top, b.top);
     bottom = Math.max(bottom, b.bottom);
   }
   return top < bottom ? { top, bottom } : { top: 0, bottom: CELL_H };
 }
 
-// Ana sheet'in satırları (bop.json "sheet": "main" için), boş kareler atlanmış.
+// Rows of the main sheet (for bop.json "sheet": "main"), empty frames skipped.
 function mainRows(sheet) {
   return Object.values(sheet.animations).map((a) => a.frames);
 }
 
 /**
- * İmlece göre bakış karesi: 0° yukarı/ön, saat yönünde.
- * Yalnız ön yarım daire (-90°…+90°): Codex sözleşmesinde 180° aşağı bakıştır, ama eski petlerde
- * (ör. Johnny) arkadan görünüş çizilmiş; ön yarım daire ikisinde de doğru görünür.
+ * Look frame toward the cursor: 0° up/front, clockwise.
+ * Front half-circle only (-90°…+90°): in the Codex contract 180° looks down, but older pets
+ * (e.g. Johnny) draw a back view there; the front half-circle looks right on both.
  */
 export function lookIndex(dx, dy) {
   let deg = (Math.atan2(dx, -dy) * 180) / Math.PI; // -180…180

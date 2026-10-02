@@ -1,4 +1,4 @@
-//! Renkler ve palet tonları (taban, gölge, ışık).
+//! Colors and palette tones (base, shade, highlight).
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Default)]
 pub struct Rgba(pub u8, pub u8, pub u8, pub u8);
@@ -14,7 +14,7 @@ impl Rgba {
         self.3 == 0
     }
 
-    /// `#RRGGBB` ya da `#RRGGBBAA`.
+    /// `#RRGGBB` or `#RRGGBBAA`.
     pub fn parse_hex(s: &str) -> Option<Rgba> {
         let h = s.strip_prefix('#')?;
         if !(h.len() == 6 || h.len() == 8) || !h.bytes().all(|b| b.is_ascii_hexdigit()) {
@@ -73,27 +73,27 @@ impl Rgba {
         Rgba(ch(h + 1.0 / 3.0), ch(h), ch(h - 1.0 / 3.0), a)
     }
 
-    /// Gölge tonu: daha koyu, renk tonu hafif kırmızıya/mora kayar (sıcak gölge).
+    /// Shade tone: darker, hue shifts slightly toward red/purple (warm shadow).
     pub fn auto_shade(self) -> Rgba {
         let (h, s, l) = self.to_hsl();
         let shift = if (40.0..200.0).contains(&h) { 6.0 } else { -3.0 };
         Rgba::from_hsl(h + shift, (s * 0.85).max(s - 0.2), l - 0.13, self.3)
     }
 
-    /// Işık tonu: daha açık, biraz daha az doygun.
+    /// Highlight tone: lighter, slightly less saturated.
     pub fn auto_hi(self) -> Rgba {
         let (h, s, l) = self.to_hsl();
         Rgba::from_hsl(h - 2.0, s, l + (1.0 - l) * 0.5, self.3)
     }
 
-    /// Algısal parlaklık (0–255).
+    /// Perceived brightness (0–255).
     #[cfg(test)]
     pub fn luma(self) -> f64 {
         0.299 * self.0 as f64 + 0.587 * self.1 as f64 + 0.114 * self.2 as f64
     }
 }
 
-/// Bir palet girdisinin üç tonu.
+/// The three tones of a palette entry.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub struct Tone {
     pub base: Rgba,
@@ -105,7 +105,7 @@ impl Tone {
     pub fn auto(base: Rgba) -> Tone {
         Tone { base, shade: base.auto_shade(), hi: base.auto_hi() }
     }
-    /// Tek renkli (gölgesiz) ton.
+    /// Single-color (unshaded) tone.
     pub fn flat(c: Rgba) -> Tone {
         Tone { base: c, shade: c, hi: c }
     }
@@ -116,7 +116,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn hex_okunur() {
+    fn hex_parses() {
         assert_eq!(Rgba::parse_hex("#FFB066"), Some(Rgba(255, 176, 102, 255)));
         assert_eq!(Rgba::parse_hex("#ffb06680"), Some(Rgba(255, 176, 102, 128)));
         assert_eq!(Rgba::parse_hex("FFB066"), None);
@@ -125,7 +125,7 @@ mod tests {
     }
 
     #[test]
-    fn golge_koyu_isik_acik() {
+    fn shade_is_darker_hi_is_lighter() {
         let c = Rgba::rgb(0xFF, 0xB0, 0x66);
         assert!(c.auto_shade().luma() < c.luma());
         assert!(c.auto_hi().luma() > c.luma());

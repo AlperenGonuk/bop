@@ -1,9 +1,9 @@
-//! Tek kareyi çizer: parçalar, sözde-3B dönüş (elips üzerinde yaw/pitch), derinlik sırası,
-//! kontur, gölge, yüz ve proplar. Çıktı mantıksal ızgarada renk + etiket tamponu.
+//! Draws a single frame: parts, pseudo-3D rotation (yaw/pitch on an ellipsoid), depth order,
+//! outline, shading, face and props. Output is a color + tag buffer on the logical grid.
 //!
-//! Koordinatlar: kök = zemin ortası, y aşağı artı, z izleyiciye doğru artı.
-//! Gruplar: `root` (zemin, dönmez), `body` (gövde merkezi), `head` (kafa merkezi; kafa yoksa
-//! gövde üzerindeki "yüz" grubu: gövdeyle aynı elips, ama kafanın açılarıyla döner).
+//! Coordinates: root = ground center, y positive downward, z positive toward the viewer.
+//! Groups: `root` (ground, does not turn), `body` (body center), `head` (head center; without a
+//! head, the "face" group on the body: the same ellipse as the body, but it turns with the head's angles).
 
 use super::color::{Rgba, Tone};
 use super::spec::{Character, EyeStyle, GroupId, MouthStyle, PartSpec, Role, Shading, ShapeKind, Show};
@@ -44,8 +44,8 @@ pub enum Brows {
     Raised,
 }
 
-/// Kare başına poz. Uzunluklar 48×52 ızgarası biriminde (çizimde k ile büyütülür),
-/// açılar derece. `eye_x`/`eye_y`: −1…1 (sağ/yukarı artı).
+/// Per-frame pose. Lengths are in 48×52 grid units (scaled by k when drawing),
+/// angles in degrees. `eye_x`/`eye_y`: −1…1 (right/up positive).
 #[derive(Clone, Debug)]
 pub struct Pose {
     pub dx: f64,
@@ -63,7 +63,7 @@ pub struct Pose {
     pub brows: Brows,
     pub sway: f64,
     pub droop: f64,
-    /// (omuz, dirsek) açısı; omuz 0 = aşağı, 90 = dışa yatay, 180 = yukarı; eksi = içe.
+    /// (shoulder, elbow) angle; shoulder 0 = down, 90 = horizontal outward, 180 = up; negative = inward.
     pub arm_l: Option<(f64, f64)>,
     pub arm_r: Option<(f64, f64)>,
     pub foot_l: (f64, f64),
@@ -102,7 +102,7 @@ impl Default for Pose {
     }
 }
 
-/// Mantıksal kare: renk ve etiket (hangi tür parça çizdi).
+/// Logical frame: color and tag (which kind of part drew the pixel).
 #[derive(Clone)]
 pub struct Frame {
     pub w: usize,
@@ -134,7 +134,7 @@ impl Frame {
     }
 }
 
-// --- Geometri -----------------------------------------------------------------------------
+// --- Geometry -----------------------------------------------------------------------------
 
 type P2 = (f64, f64);
 
@@ -143,8 +143,8 @@ fn rot2(p: P2, deg: f64) -> P2 {
     (p.0 * a.cos() - p.1 * a.sin(), p.0 * a.sin() + p.1 * a.cos())
 }
 
-/// Elipsoit üzerinde dönüş: (x, y, z) noktası, yarıçaplar (rx, ry, rz).
-/// Döner: yeni nokta ve dönüş sonrası yatay açı (yüzey normalinin izleyiciye göre açısı).
+/// Rotation on an ellipsoid: point (x, y, z), radii (rx, ry, rz).
+/// Returns the new point and the horizontal angle after rotation (surface normal's angle to the viewer).
 fn rotate3(p: [f64; 3], r: [f64; 3], yaw: f64, pitch: f64, roll: f64) -> ([f64; 3], f64) {
     let (u, w) = (p[0] / r[0], p[2] / r[2]);
     let rho = (u * u + w * w).sqrt();
@@ -195,8 +195,8 @@ impl Geo {
         }
     }
 
-    /// Piksel merkezi (x, y) şeklin içinde mi; içindeyse gölge için normal (nx, ny) ve
-    /// (piksel haritasında) kendi rengi.
+    /// Whether the pixel center (x, y) is inside the shape; if so, the normal (nx, ny) for shading
+    /// and (for pixel maps) its own color.
     fn hit(&self, x: f64, y: f64) -> Option<(P2, Option<Rgba>)> {
         match self {
             Geo::Ellipse { c, rx, ry, rot } => {
@@ -266,19 +266,19 @@ fn bbox_normal(pts: &[P2], x: f64, y: f64) -> P2 {
     ((x - cx) / hw, (y - cy) / hh)
 }
 
-/// Bir birleşik çizim öğesindeki alt şekil.
+/// A sub-shape in a combined draw item.
 struct Sub {
     geo: Geo,
     tone: Tone,
     shading: Shading,
 }
 
-/// Painter sırasıyla çizilen öğe.
+/// An item drawn in painter's order.
 enum Item {
     Shape {
         subs: Vec<Sub>,
         outline: bool,
-        /// Yalnız bu etiketin üstüne çizilir (yüzey işaretleri).
+        /// Drawn only on top of this tag (surface markings).
         clip: Option<u8>,
         tag: u8,
         gloss: bool,
@@ -288,7 +288,7 @@ enum Item {
     Sweat,
 }
 
-/// Grup dönüşümleri (bir kare için).
+/// Group transforms (for one frame).
 struct Rig {
     k: f64,
     origin: P2,
@@ -305,7 +305,7 @@ impl Rig {
         self.body_r[1]
     }
 
-    /// Gövde uzayındaki noktayı (dönüşü verilmiş) köke taşır: basma, eğilme, öteleme.
+    /// Moves a point in body space (already rotated) to root space: squash, lean, translation.
     fn body_post(&self, p: [f64; 3]) -> [f64; 3] {
         let hip = self.hip();
         let x = p[0] * self.sx;
@@ -318,7 +318,7 @@ impl Rig {
         ]
     }
 
-    /// Grup uzayındaki noktanın kökteki yeri ve dönüş sonrası yatay açısı.
+    /// A group-space point's position in root space and its horizontal angle after rotation.
     fn place(&self, g: GroupId, p: [f64; 3]) -> ([f64; 3], f64) {
         match g {
             GroupId::Root => (p, 0.0),
@@ -364,13 +364,13 @@ impl Rig {
         }
     }
 
-    /// Kökteki nokta → mantıksal kanvas.
+    /// Root-space point → logical canvas.
     fn canvas(&self, p: [f64; 3]) -> P2 {
         (self.origin.0 + p[0], self.origin.1 + p[1])
     }
 }
 
-/// Yüzeydeki noktanın derinliği (grubun ana elipsine göre).
+/// Depth of a point on the surface (relative to the group's main ellipse).
 fn surface_z(r: [f64; 3], x: f64, y: f64) -> f64 {
     let t = 1.0 - (x / r[0]).powi(2) - (y / r[1]).powi(2);
     r[2] * t.max(0.0).sqrt()
@@ -394,10 +394,10 @@ fn default_droop(role: Role) -> f64 {
     }
 }
 
-/// Parçanın bu karedeki geometrisi; görünmüyorsa `None`.
+/// The part's geometry in this frame; `None` if it is not visible.
 fn part_geo(ch: &Character, rig: &Rig, p: &PartSpec, squash: bool) -> Option<(Geo, f64)> {
     let pose = &rig.pose;
-    // Ana gövde/kafa kendi grubunun merkezidir (`at` yalnız grubun yerini verir).
+    // The main body/head is the center of its own group (`at` only places the group).
     let (group, at) = match p.role {
         Role::Body => (GroupId::Body, [0.0, 0.0]),
         Role::Head => (GroupId::Head, [0.0, 0.0]),
@@ -453,7 +453,7 @@ fn part_geo(ch: &Character, rig: &Rig, p: &PartSpec, squash: bool) -> Option<(Ge
     Some((geo, z))
 }
 
-/// Kol: omuz + iki parça + el, tek birleşik şekil.
+/// Arm: shoulder + two segments + hand, as one combined shape.
 fn limb_subs(ch: &Character, rig: &Rig, p: &PartSpec, angles: (f64, f64)) -> Option<(Vec<Sub>, f64)> {
     let (a, _) = rig.place(p.on, [p.at[0], p.at[1], p.z.unwrap_or(0.0)]);
     let s = if p.at[0] < 0.0 { -1.0 } else { 1.0 };
@@ -477,11 +477,11 @@ fn limb_subs(ch: &Character, rig: &Rig, p: &PartSpec, angles: (f64, f64)) -> Opt
     Some((subs, a[2]))
 }
 
-/// Karakterin bir karesini çizer.
+/// Draws one frame of the character.
 pub fn render(ch: &Character, pose: &Pose) -> Frame {
     let g = ch.grid;
     let k = g.k();
-    let body = ch.parts.iter().find(|p| p.role == Role::Body).expect("gövde parçası doğrulandı");
+    let body = ch.parts.iter().find(|p| p.role == Role::Body).expect("body part was validated");
     let bs = body.size.unwrap_or([10.0, 10.0]);
     let body_r = [bs[0] / 2.0, bs[1] / 2.0, body.depth.map(|d| d / 2.0).unwrap_or(bs[0] / 2.0)];
     let head = ch.parts.iter().find(|p| p.role == Role::Head).map(|h| {
@@ -500,7 +500,7 @@ pub fn render(ch: &Character, pose: &Pose) -> Frame {
         pose: pose.clone(),
     };
 
-    // Öğeleri topla.
+    // Collect the items.
     let mut items: Vec<(f64, usize, Item)> = Vec::new();
     let mut seq = 0usize;
     let mut push = |items: &mut Vec<(f64, usize, Item)>, z: f64, it: Item| {
@@ -540,7 +540,7 @@ pub fn render(ch: &Character, pose: &Pose) -> Frame {
         let tone = ch.tone(p.color.as_deref().unwrap_or("body")).unwrap_or(Tone::flat(Rgba::rgb(255, 0, 255)));
         let shading = p.shading.unwrap_or(if p.shape == ShapeKind::Pixels { Shading::Flat } else { Shading::Ball });
         let mut subs = vec![Sub { geo, tone, shading }];
-        // Bu parçaya katılanlar (aynı kontur, aynı derinlik).
+        // Parts joined to this one (same outline, same depth).
         for j in ch.parts.iter().filter(|j| j.join.as_deref() == Some(p.name.as_str())) {
             if let Some((geo, _)) = part_geo(ch, &rig, j, squash) {
                 let tone = ch.tone(j.color.as_deref().unwrap_or("body")).unwrap_or(tone);
@@ -556,7 +556,7 @@ pub fn render(ch: &Character, pose: &Pose) -> Frame {
         let clip = p.clip.then(|| rig.main_tag(p.on));
         push(&mut items, z, Item::Shape { subs, outline, clip, tag, gloss: p.gloss && is_main });
     }
-    // Yüz: yüz grubunun ön yüzeyi.
+    // Face: the front surface of the face group.
     let fr = rig.group_r(GroupId::Head);
     let (fc, _) = rig.place(GroupId::Head, [0.0, 0.0, 0.0]);
     push(&mut items, fc[2] + fr[2] + 0.5, Item::Face);
@@ -607,7 +607,7 @@ fn shift(g: Geo, d: P2) -> Geo {
     }
 }
 
-/// k×k blok (96×104 ızgarasında yüz desenleri 2×2 piksel çizilir).
+/// k×k block (on the 96×104 grid, face patterns are drawn as 2×2 pixels).
 fn block(k: f64) -> Vec<(i32, i32)> {
     let n = k.round().max(1.0) as i32;
     (0..n).flat_map(|y| (0..n).map(move |x| (x, y))).collect()
@@ -633,7 +633,7 @@ fn paint_shape(f: &mut Frame, subs: &[Sub], outline: bool, clip: Option<u8>, tag
             let (x, y) = (x0 + xx as i32, y0 + yy as i32);
             let (cx, cy) = (x as f64 + 0.5, y as f64 + 0.5);
             let mut col = None;
-            // İlk alt şekil (ana) ışığı belirler; katılanlar onun normaliyle gölgelenir.
+            // The first (main) sub-shape sets the lighting; joined shapes are shaded with its normal.
             let main_n = subs.first().and_then(|s| s.geo.hit(cx, cy)).map(|h| h.0);
             for s in subs {
                 if let Some((n, own)) = s.geo.hit(cx, cy) {
@@ -680,7 +680,7 @@ fn paint_shape(f: &mut Frame, subs: &[Sub], outline: bool, clip: Option<u8>, tag
     }
 }
 
-/// Işık sol üstten, sabit (aynalı koşuda da yer değiştirmez).
+/// Light comes from the top left and is fixed (it does not move in the mirrored run either).
 fn shade(t: Tone, s: Shading, n: P2) -> Rgba {
     match s {
         Shading::Flat => t.base,
@@ -705,9 +705,9 @@ fn shade(t: Tone, s: Shading, n: P2) -> Rgba {
     }
 }
 
-// --- Yüz ----------------------------------------------------------------------------------
+// --- Face ----------------------------------------------------------------------------------
 
-/// Desen: satırlar, köken sütunu/satırı. Harfler: E göz/kontur, W beyaz, T dil, C yanak.
+/// Pattern: rows, origin column/row. Letters: E eye/outline, W white, T tongue, C cheek.
 struct Pat(&'static [&'static str], i32, i32);
 
 const EYE_OPEN: Pat = Pat(&[".EE.", "EEEE", "EEEE", "EEEE", ".EE."], 2, 2);
@@ -756,7 +756,7 @@ fn stamp(f: &mut Frame, ch: &Character, pat: &Pat, at: (i32, i32), k: f64, tag: 
             };
             let (px, py) = (at.0 + (i as i32 - pat.1) * n, at.1 + (j as i32 - pat.2) * n);
             for (dx, dy) in block(k) {
-                // Yüz özellikleri siluetin dışına taşmaz.
+                // Facial features do not spill outside the silhouette.
                 if (tag == TAG_EYE || tag == TAG_FACE) && matches!(f.tag_at(px + dx, py + dy), TAG_NONE | TAG_OUTLINE) {
                     continue;
                 }
@@ -773,7 +773,7 @@ fn draw_face(f: &mut Frame, ch: &Character, rig: &Rig) {
     let face = &ch.face;
     let r = rig.group_r(GroupId::Head);
     let main_tag = rig.main_tag(GroupId::Head);
-    // Yüzeydeki noktayı kanvasa taşır; arka yüzdeyse None. Döner: (x, y, yöne bakış cos'u).
+    // Maps a surface point to the canvas; None if it is on the back side. Returns (x, y, cos of facing).
     let put = |x: f64, y: f64| -> Option<(f64, f64, f64)> {
         let z = surface_z(r, x, y);
         let (p, phi) = rig.place(GroupId::Head, [x, y, z]);
@@ -782,7 +782,7 @@ fn draw_face(f: &mut Frame, ch: &Character, rig: &Rig) {
         (facing > 0.15).then_some((c.0, c.1, facing))
     };
     let ex = face.gap / 2.0;
-    // Yanaklar önce (yalnız yüzün üstünde).
+    // Cheeks first (only on top of the face).
     if face.cheeks {
         let cheek = ch.color("cheek").unwrap_or(Rgba::rgb(255, 111, 133));
         for s in [-1.0, 1.0] {
@@ -802,7 +802,7 @@ fn draw_face(f: &mut Frame, ch: &Character, rig: &Rig) {
             }
         }
     }
-    // Gözler.
+    // Eyes.
     let ox = (pose.eye_x * k).round() as i32;
     let oy = (-pose.eye_y * 0.6 * k).round() as i32;
     for s in [-1.0, 1.0] {
@@ -836,7 +836,7 @@ fn draw_face(f: &mut Frame, ch: &Character, rig: &Rig) {
         };
         match (pose.eyes, face.eyes) {
             (Eyes::Open, EyeStyle::Round) if !narrow => {
-                // Gözbebeği 2×2, beyazın içinde bakış yönüne kayar.
+                // The 2×2 pupil shifts inside the white toward the look direction.
                 let px = (pose.eye_x * 1.2).round().clamp(-1.0, 1.0) as i32;
                 let py = (-pose.eye_y * 1.2).round().clamp(-1.0, 1.0) as i32;
                 for j in 0..2 {
@@ -873,7 +873,7 @@ fn draw_face(f: &mut Frame, ch: &Character, rig: &Rig) {
             stamp(f, ch, pat, (at.0, at.1 - lift * n), k, TAG_FACE);
         }
     }
-    // Ağız.
+    // Mouth.
     if face.mouth != MouthStyle::None {
         if let Some((x, y, _)) = put(0.0, face.y + face.mouth_drop) {
             let pat = match pose.mouth {
@@ -892,7 +892,7 @@ fn draw_face(f: &mut Frame, ch: &Character, rig: &Rig) {
     }
 }
 
-/// Ter damlası: yüzün yanında, gövdeye değerek.
+/// Sweat drop: beside the face, touching the body.
 fn draw_sweat(f: &mut Frame, ch: &Character, rig: &Rig) {
     let k = rig.k;
     let r = rig.group_r(GroupId::Head);
@@ -904,7 +904,7 @@ fn draw_sweat(f: &mut Frame, ch: &Character, rig: &Rig) {
     stamp(f, ch, &SWEAT, (c.0.floor() as i32, c.1.floor() as i32), k, TAG_PROP);
 }
 
-/// Dizüstü (iş satırı): gövdenin önünde, tabanı gövdenin altında; eller klavyede.
+/// Laptop (work row): in front of the body, its base below the body; hands on the keyboard.
 fn draw_laptop(f: &mut Frame, ch: &Character, rig: &Rig, phase: u32) {
     let k = rig.k;
     let (c, _) = rig.place(GroupId::Body, [0.0, 0.0, 0.0]);
@@ -940,7 +940,7 @@ fn draw_laptop(f: &mut Frame, ch: &Character, rig: &Rig, phase: u32) {
             f.set(mx - n + 1 + x, top + 2 * n + y, white, TAG_PROP);
         }
     }
-    // Eller: sırayla tuşa basar. Kolsuz (`arms: none` ya da `show: never`) pete el çizilmez.
+    // Hands: press keys in turn. An armless pet (`arms: none` or `show: never`) gets no hands.
     let Some(arm) = ch.parts.iter().find(|p| p.role == Role::Arm && p.show != Some(Show::Never)) else { return };
     let tone = arm.color.as_deref().and_then(|c| ch.tone(c).ok()).unwrap_or_else(|| ch.tone("body").unwrap());
     let (l, r) = if phase % 2 == 0 { (-1.0, 0.0) } else { (0.0, -1.0) };

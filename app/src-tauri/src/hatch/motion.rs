@@ -1,5 +1,5 @@
-//! Satırlar ve kare pozları. Satır sırası ve kare sayıları Codex v2 sözleşmesi (docs/SPRITE.md).
-//! Hareketler koddan türer; spec yalnız ölçekleri (`motion`) verir.
+//! Rows and frame poses. Row order and frame counts follow the Codex v2 contract (docs/SPRITE.md).
+//! Motion comes from code; the spec only provides the scales (`motion`).
 
 use super::rig::{Brows, Eyes, Mouth, Pose};
 use super::spec::Character;
@@ -8,7 +8,7 @@ use std::f64::consts::PI;
 pub struct Row {
     pub name: &'static str,
     pub frames: usize,
-    /// Codex kare süreleri (ms), yalnız bilgi ve önizleme için.
+    /// Codex frame durations (ms), for information and preview only.
     pub durations: &'static [u32],
 }
 
@@ -26,16 +26,16 @@ pub const ROWS: &[Row] = &[
     Row { name: "look-b", frames: 8, durations: &[] },
 ];
 
-/// v2'de idle satırının 7. hücresi (0,6): nötr ön poz (Codex `neutralLookFrame`).
+/// In v2, the 7th cell of the idle row (0,6): the neutral front pose (Codex `neutralLookFrame`).
 pub const NEUTRAL_CELL: (usize, usize) = (0, 6);
 pub const LOOK_ROW: usize = 9;
 
-/// Bakış açısı (derece) → 16 yönden biri; 0 = yukarı, saat yönünde.
+/// Look angle (degrees) → one of 16 directions; 0 = up, clockwise.
 pub fn look_angle(i: usize) -> f64 {
     i as f64 * 22.5
 }
 
-/// Bakış pozu: göz 1.0, kafa 0.6, gövde 0.25 oranında yönü izler; ayaklar sabit.
+/// Look pose: eyes follow the direction at 1.0, head at 0.6, body at 0.25; feet stay put.
 pub fn look(ch: &Character, deg: f64) -> Pose {
     let m = &ch.motion;
     let a = deg * PI / 180.0;
@@ -46,14 +46,14 @@ pub fn look(ch: &Character, deg: f64) -> Pose {
         head_yaw: 0.6 * h * m.turn,
         body_yaw: 0.25 * h * m.turn,
         head_pitch: 0.6 * v * m.pitch,
-        // Tepedeki parça yönün tersine hafifçe geride kalır.
+        // The top part lags slightly behind, opposite to the direction.
         sway: -h * 6.0 * m.sway,
         lean: h * 1.5,
         ..Pose::default()
     }
 }
 
-/// Satırın pozları. `jump`: zıplama yüksekliği (48×52 biriminde, boşluğa göre).
+/// The row's poses. `jump`: jump height (in 48×52 units, depending on headroom).
 pub fn row_poses(ch: &Character, row: usize, jump: f64) -> Vec<Pose> {
     let m = &ch.motion;
     let b = m.bounce;
@@ -99,7 +99,7 @@ pub fn row_poses(ch: &Character, row: usize, jump: f64) -> Vec<Pose> {
                     ..Pose::default()
                 });
             }
-            // Gesture kolları koşuda görünmesin: kol açıları yalnız "always" kollar için.
+            // Gesture arms should not show while running: arm angles are only for "always" arms.
             if !arms_always(ch) {
                 for p in &mut out {
                     p.arm_l = None;
@@ -108,7 +108,7 @@ pub fn row_poses(ch: &Character, row: usize, jump: f64) -> Vec<Pose> {
             }
         }
         "waving" => {
-            // Başlangıç (kol kalkar), tepe (dışa), tepe (içe), dönüş.
+            // Start (arm rises), peak (outward), peak (inward), return.
             let arm = [(80.0, 30.0), (150.0, -25.0), (150.0, 40.0), (100.0, 20.0)];
             let lean = [2.0, 4.0, 3.0, 1.5];
             let sway = [2.0, 6.0, -4.0, 0.0];
@@ -192,8 +192,8 @@ pub fn row_poses(ch: &Character, row: usize, jump: f64) -> Vec<Pose> {
         "running" => {
             let sway = [3.0, -3.0, 2.0, -2.0, 3.0, -1.0];
             let ex = [-0.5, -0.2, 0.1, 0.4, 0.1, -0.2];
-            // Dizüstü yoksa kıpırdanan kollar yalnız "always" kollarda (gesture kollar yalnız
-            // waving/jumping/waiting/review'da görünür, spec-format.md).
+            // Without a laptop, fidgeting arms only for "always" arms (gesture arms only show in
+            // waving/jumping/waiting/review, spec-format.md).
             let fidget = !ch.laptop && arms_always(ch);
             for i in 0..n {
                 out.push(Pose {

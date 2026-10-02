@@ -1,8 +1,9 @@
-# Spritesheet bilgisi
+# Spritesheet reference
 
-Codex pet formatı. Resmi bir belge sayfası yok; tanım OpenAI'ın `hatch-pet` skill'indeki
-sözleşme (`codex-pet-contract.md`, `animation-rows.md`, `validate_atlas.py`). Kararlar:
-[KARARLAR.md](KARARLAR.md) 3. karar. Karşılaştırma: [arastirma/3-hatch-tasarim.md](arastirma/3-hatch-tasarim.md) 2.5.
+Codex pet format. There is no official documentation page; the definition is the contract in
+OpenAI's `hatch-pet` skill (`codex-pet-contract.md`, `animation-rows.md`, `validate_atlas.py`).
+Decisions: [DECISIONS.md](DECISIONS.md), decision 3. Comparison:
+[research/3-hatch-design.md](research/3-hatch-design.md) 2.5.
 
 ## `pet.json`
 
@@ -16,72 +17,74 @@ sözleşme (`codex-pet-contract.md`, `animation-rows.md`, `validate_atlas.py`). 
 }
 ```
 
-- Uygulama yalnız bu 5 alanı okur; sürümü görsel boyutundan bulur.
-- `spriteVersionNumber: 2` Codex'te **zorunlu**: yazılmazsa Codex peti v1 sayar ve 2288 piksel
-  yüksekliğindeki sheet'i reddeder. `bop hatch` her zaman yazar.
-- Görsel PNG ya da WebP, saydam RGBA.
+- The app reads only these 5 fields; it determines the version from the image size.
+- `spriteVersionNumber: 2` is **required** in Codex: without it Codex treats the pet as v1 and
+  rejects the 2288-pixel-tall sheet. `bop hatch` always writes it.
+- Image is PNG or WebP, transparent RGBA.
 
-## Sürümler (görsel boyutundan anlaşılır)
+## Versions (inferred from the image size)
 
-| Sürüm | Boyut | Izgara | Bakış satırları |
+| Version | Size | Grid | Look rows |
 |---|---|---|---|
-| v1 | 1536 × 1872 | 8 × 9 | yok, fareye bakma sessizce kapalı |
-| v2 | 1536 × 2288 | 8 × 11 | 9–10. satırlar + (0,6) nötr hücre |
+| v1 | 1536 × 1872 | 8 × 9 | none, following the mouse silently off |
+| v2 | 1536 × 2288 | 8 × 11 | rows 9–10 + (0,6) neutral cell |
 
-- Hücre: 192 × 208 piksel, saydam RGBA
-- Kare konumu: `x = sütun * 192`, `y = satır * 208`
-- Kullanılmayan hücreler tamamen saydam; saydam piksellerde RGB de 0 olmalı (Codex
-  doğrulayıcısı "transparent RGB residue" hatası verir).
-- Kare sayısı uygulamada boş hücreler (alfa kanalı tamamen 0) atlanarak bulunur.
+- Cell: 192 × 208 pixels, transparent RGBA
+- Frame position: `x = column * 192`, `y = row * 208`
+- Unused cells are fully transparent; transparent pixels must also have RGB 0 (the Codex
+  validator reports a "transparent RGB residue" error).
+- The app finds the frame count by skipping empty cells (alpha channel entirely 0).
 
-| Satır | Durum | Kare | Codex kare süreleri (ms) | Anlamı |
+| Row | State | Frames | Codex frame durations (ms) | Meaning |
 |---|---|---|---|---|
-| 0 | idle | 6 (+ v2'de (0,6) nötr) | 280, 110, 110, 140, 140, 320 | nefes, göz kırpma; durağan olamaz |
-| 1 | running-right | 8 | 120 ×7, son 220 | sağa koşu |
-| 2 | running-left | 8 | 120 ×7, son 220 | sola koşu |
-| 3 | waving | 4 | 140 ×3, son 280 | başlangıç, kalkık el, dönüş |
-| 4 | jumping | 5 | 140 ×4, son 280 | hazırlık, kalkış, tepe, iniş, oturma |
-| 5 | failed | 8 | 140 ×7, son 240 | üzgün/sönük |
-| 6 | waiting | 6 | 150 ×5, son 260 | onay/girdi bekleyen istekli poz |
-| 7 | running | 6 | 120 ×5, son 220 | iş/işlem (ayakla koşu değil; ör. dizüstü) |
-| 8 | review | 6 | 150 ×5, son 280 | odaklı inceleme |
-| 9 | look 0°–157.5° (yalnız v2) | 8 | – | bakış yönleri |
-| 10 | look 180°–337.5° (yalnız v2) | 8 | – | bakış yönleri |
+| 0 | idle | 6 (+ (0,6) neutral in v2) | 280, 110, 110, 140, 140, 320 | breathing, blinking; must not be static |
+| 1 | running-right | 8 | 120 ×7, last 220 | running right |
+| 2 | running-left | 8 | 120 ×7, last 220 | running left |
+| 3 | waving | 4 | 140 ×3, last 280 | start, raised hand, return |
+| 4 | jumping | 5 | 140 ×4, last 280 | crouch, takeoff, peak, landing, settle |
+| 5 | failed | 8 | 140 ×7, last 240 | sad/deflated |
+| 6 | waiting | 6 | 150 ×5, last 260 | eager pose waiting for approval/input |
+| 7 | running | 6 | 120 ×5, last 220 | work/processing (not running on feet; e.g. laptop) |
+| 8 | review | 6 | 150 ×5, last 280 | focused review |
+| 9 | look 0°–157.5° (v2 only) | 8 | – | look directions |
+| 10 | look 180°–337.5° (v2 only) | 8 | – | look directions |
 
-- Kare süreleri bilgi içindir; uygulama tek `frameMs` kullanır (`bop.json`, aşağıda).
-- Johnny ve clawd-fan kare sayıları uygulamada doğrulandı (2026-09-30): idle 7 dolu hücre
-  (6 + nötr). Johnny dosyaları: `dev-pets/johnny/` (yalnız yerelde, repoda değil).
+- Frame durations are informational; the app uses a single `frameMs` (`bop.json`, below).
+- Johnny and clawd-fan frame counts were verified in the app (2026-09-30): idle has 7 filled
+  cells (6 + neutral). Johnny's files: `dev-pets/johnny/` (local only, not in the repository).
 
-### (0,6) nötr hücre (v2)
+### (0,6) neutral cell (v2)
 
-v2'de satır 0, sütun 6 **dolu olmalıdır**: ön/nötr poz (Codex `neutralLookFrame`, en az 50 piksel).
-İmleç ölü bölgedeyken gösterilen pozdur; idle karesi değildir. Önerilen içerik: idle'ın ilk karesiyle
-aynı. Uygulama (sprites.js) v2'de bu hücreyi idle döngüsünden çıkarır (`neutralFrame`); imleç ölü
-bölgedeyken ve boşta "etrafa bakınma" hareketinin başında/sonunda bu poz gösterilir (v1'de ya da
-hücre yoksa idle 0). Etrafa bakınma: nötr → sağ → sol → kısa yukarı → nötr, yalnız ön yarım daire.
+In v2, row 0, column 6 **must be filled**: the front/neutral pose (Codex `neutralLookFrame`, at
+least 50 pixels). It is the pose shown while the cursor is in the dead zone; it is not an idle
+frame. Suggested content: the same as the first idle frame. The app (sprites.js) removes this cell
+from the idle loop in v2 (`neutralFrame`); this pose is shown while the cursor is in the dead zone
+and at the start/end of the idle "look around" move (idle 0 in v1 or when the cell is missing).
+Look around: neutral → right → left → short up → neutral, front half circle only.
 
-### Ayna ve satır kuralları
+### Mirroring and row rules
 
-- `running-left`, `running-right`'ın aynası olabilir ama yalnız kimlik ve el tercihi (prop hangi
-  elde) bozulmuyorsa; **kare sırası korunur** (her kare yerinde aynalanır). `bop hatch` aynalamaz,
-  sola dönük yeniden çizer (ışık sol üstte kalır).
-- Efektler pete değmeli (kopuk yıldız, nokta, soru işareti, düşünce balonu, hız çizgisi, gölge
-  yok); `waiting`, `running`, `review`, `failed` birbirinden ayırt edilebilir olmalı.
-- Bütün sprite'ı döndürerek bakış taklidi yapılmaz: gözler önden gider, kafa izler, üst gövde
-  hafifçe izler, ayaklar sabit; taban çizgisi ve ölçek nötrle aynı.
+- `running-left` may be a mirror of `running-right`, but only if identity and handedness (which
+  hand holds the prop) are not broken; **frame order is preserved** (each frame is mirrored in
+  place). `bop hatch` does not mirror; it redraws facing left (the light stays top-left).
+- Effects must touch the pet (no detached stars, dots, question marks, thought bubbles, speed
+  lines or shadows); `waiting`, `running`, `review` and `failed` must be distinguishable from each
+  other.
+- Do not fake looking by rotating the whole sprite: the eyes lead, the head follows, the upper body
+  follows slightly, the feet stay fixed; baseline and scale are the same as neutral.
 
-## Bakış satırları (v2)
+## Look rows (v2)
 
-16 yön, 22.5° adım, saat yönünde; satır 9 = 0°–157.5°, satır 10 = 180°–337.5°.
-**0° yukarı, 90° sağ, 180° aşağı, 270° sol** (Codex sözleşmesi: 180° aşağı bakıştır, arkasını
-dönme değil). Eski petlerde 180° farklı çizilmiş olabilir (Johnny'de arkadan görünüş). Bu yüzden
-uygulamada fareye bakma yalnız ön yarım daireyi (−90°…+90°) kullanır; imleç aşağıdaysa pet yana
-ya da öne bakar.
+16 directions, 22.5° steps, clockwise; row 9 = 0°–157.5°, row 10 = 180°–337.5°.
+**0° up, 90° right, 180° down, 270° left** (Codex contract: 180° is looking down, not turning
+around). Older pets may draw 180° differently (Johnny shows a back view). This is why following the
+mouse in the app uses only the front half circle (−90°…+90°); when the cursor is below, the pet
+looks sideways or forward.
 
-`bop hatch` bakışı oranlarla türetir: gözbebeği 1.0, kafa ~0.6, gövde ~0.25 (sözde-3B dönüş),
-ayaklar sabit. Yön koordinattan ölçülerek doğrulanır.
+`bop hatch` derives looking from ratios: pupil 1.0, head ~0.6, body ~0.25 (pseudo-3D rotation),
+feet fixed. Direction is verified by measuring coordinates.
 
-## `bop.json` (isteğe bağlı)
+## `bop.json` (optional)
 
 ```json
 {
@@ -98,17 +101,17 @@ ayaklar sabit. Yön koordinattan ölçülerek doğrulanır.
 }
 ```
 
-- `frameMs`: tüm animasyonların varsayılan kare süresi (30–2000 ms; yoksa 150).
-- `sheets`: ek sheet'ler. Aynı ızgara: hücre 192 × 208, en fazla 8 sütun, satır sayısı serbest.
-  `main` ayrılmış addır (ana sheet). Yol pet klasörünün içinde olmalı.
-- `animations`: isimli satırlar. `sheet` verilmezse ana sheet. Codex adlarını (`idle`, `running` …)
-  ezebilir.
-- `states`: durum → animasyon. Durumlar: `idle`, `running`, `thinking`, `reading`, `writing-code`,
-  `running-command`, `waiting-permission`, `done`, `failed`. Tanımsız ya da animasyonu olmayan
-  durum üst duruma düşer (`reading`/`writing-code`/`running-command`/`thinking` → `running` → `idle`).
-  Varsayılan (Codex): `thinking`→`review`, `running`→`running`, `waiting-permission`→`waiting`,
-  `done`→`jumping`, `failed`→`failed`.
-- `idleExtras`: boşta 15–30 sn arayla oynayan kısa hareketler. `look` = etrafa bakma (yalnız v2).
-  Yoksa varsayılan: v2'de `["look"]`, v1'de hiçbiri.
-- Hatalı giriş (dosya yok, ızgara uymuyor, satır yok, bilinmeyen durum/ad) atlanır ve uyarı olur;
-  pet bozulmaz. v1 pette `look` sessizce düşer.
+- `frameMs`: default frame duration for all animations (30–2000 ms; 150 if missing).
+- `sheets`: extra sheets. Same grid: cell 192 × 208, at most 8 columns, any number of rows.
+  `main` is a reserved name (the main sheet). The path must be inside the pet folder.
+- `animations`: named rows. Without `sheet`, the main sheet is used. Can override Codex names
+  (`idle`, `running` …).
+- `states`: state → animation. States: `idle`, `running`, `thinking`, `reading`, `writing-code`,
+  `running-command`, `waiting-permission`, `done`, `failed`. An undefined state, or one without an
+  animation, falls back to its parent (`reading`/`writing-code`/`running-command`/`thinking` →
+  `running` → `idle`). Default (Codex): `thinking`→`review`, `running`→`running`,
+  `waiting-permission`→`waiting`, `done`→`jumping`, `failed`→`failed`.
+- `idleExtras`: short moves played every 15–30 s while idle. `look` = look around (v2 only).
+  Default when missing: `["look"]` in v2, none in v1.
+- Invalid entries (missing file, grid mismatch, missing row, unknown state/name) are skipped with a
+  warning; the pet does not break. In a v1 pet `look` is silently dropped.

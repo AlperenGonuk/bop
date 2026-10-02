@@ -1,36 +1,49 @@
-# Bop — oturum talimatı
+# Bop — session instructions
 
-Claude Code için masaüstü maskotu (Codex pet benzeri), açık kaynak plugin. Çoklu pet destekli.
-Kullanıcı: Alperen. Dil: Türkçe. Kısa, somut, tek adım tek adım.
+A desktop pet for Claude Code (like the Codex pet), an open-source plugin. Supports multiple pets.
+User: Alperen. Short, concrete, one step at a time.
 
-## Oturum başında oku (sırayla)
+## Language
 
-1. `docs/DURUM.md`: neredeyiz, sıradaki adım
-2. `docs/PLAN.md`: aktif aşama
-3. Gerekirse `PROJE.md` (amaç, mimari) ve `docs/SPRITE.md` (atlas)
+- Talk to the user (Alperen) in Turkish; everything written into the repository (docs, code
+  comments, commit messages, logs, UI) is in English (DECISIONS 35).
 
-## Kurallar
+## Session start
 
-- Kod yazmadan önce ilgili dosyayı oku, API'leri ve imzaları hafızadan uydurma.
-- Küçük adımlarla ilerle: her adım çalıştırılıp görülebilir olsun.
-- Önce Windows 11. Teknoloji Tauri (Rust + HTML/CSS/JS), ek bağımlılık için önce sor.
-- `dev-pets/` ve dışarıdan gelen pet sprite dosyalarını değiştirme. Johnny yalnız yerelde
-  `dev-pets/johnny/` içinde durur, repoya girmez. `app/src-tauri/default-pet/` motorun çıktısıdır:
-  `plugin/skills/hatch/examples/pitir.json`'dan yeniden üretilir, elle düzenlenmez (KARARLAR 31).
-- Pet sohbetinin (`claude -p`) araçları yalnız KARARLAR 18–20'dekiler: güvenilen klasörde yalnız
-  dosya okuma (`Read`, `Glob`, `Grep`), güvenilmeyen sohbette yalnız `WebSearch` (boş pet
-  klasöründe). İkisini aynı sohbette birleştirme. Yazan, komut çalıştıran ya da adres açan bir
-  aracı (`Bash`, `Edit`, `Write`, `WebFetch` vb.) Alperen'e sormadan açma; böyle işler
-  "Terminalde aç" ile yapılır.
-- Claude Code davranışı (hook'lar, plugin, `claude -p`) için önce resmi belgeyi oku, hafızadan yazma.
-- Hook'lar asla Claude Code'u bozmamalı ya da yavaşlatmamalı: hata durumunda sessizce çıkılır.
-- **`.cmd` / `.bat` dosyaları yalnız ASCII içerir** (yorumlar dahil, İngilizce yaz). `cmd` dosyayı OEM
-  kod sayfasıyla okur; Türkçe karakter komut ayrıştırmasını bozar (KARARLAR.md, 15. karar).
-- İlk sürüm yalnız Windows (KARARLAR.md, 16. karar).
-- Kullanıcı bilgisayar başındayken gerçek fare/klavye kullanan UI testlerini sormadan çalıştırma.
+Read docs/STATUS.md, then docs/PLAN.md; PROJECT.md and docs/SPRITE.md when needed.
 
-## Oturum sonunda (devir kuralı)
+1. `docs/STATUS.md`: where we are, next step
+2. `docs/PLAN.md`: active phase
+3. When needed: `PROJECT.md` (goals, architecture) and `docs/SPRITE.md` (atlas)
 
-1. `docs/DURUM.md`: "Son oturum" ve "Sıradaki adım" bölümlerini güncelle.
-2. `docs/PLAN.md`: biten maddeleri işaretle.
-3. Kalıcı bir karar alındıysa `docs/KARARLAR.md` dosyasına tarihli satır ekle.
+## Rules
+
+- Read the relevant file before writing code; never invent APIs or signatures from memory.
+- Move in small steps: every step must be runnable and visible.
+- Windows 11 first, but the first release targets Windows, macOS and Linux (DECISIONS 23, replaces
+  16). Technology: Tauri (Rust + HTML/CSS/JS); ask before adding a dependency.
+- Do not modify sprite files in `dev-pets/` or pets that come from elsewhere. Johnny lives only
+  locally in `dev-pets/johnny/` and never enters the repository. `app/src-tauri/default-pet/` is
+  engine output: it is regenerated from `plugin/skills/hatch/examples/pitir.json` and never edited
+  by hand (DECISIONS 31).
+- The pet chat's (`claude -p`) tools are only those in DECISIONS 18–20: in a trusted folder only
+  file reading (`Read`, `Glob`, `Grep`), in an untrusted chat only `WebSearch` (in the empty pet
+  folder). Never combine the two in the same chat. Do not enable a tool that writes, runs commands
+  or opens addresses (`Bash`, `Edit`, `Write`, `WebFetch`, etc.) without asking Alperen; such work
+  is done through "Open in terminal".
+- For Claude Code behavior (hooks, plugins, `claude -p`) read the official documentation first;
+  do not write from memory.
+- Hooks must never break or slow down Claude Code: on error they exit silently.
+- **`.cmd` / `.bat` files contain ASCII only** (comments included). `cmd` reads the file with the
+  OEM code page; non-ASCII characters break command parsing (DECISIONS 15).
+- Do not run UI tests that use the real mouse/keyboard while the user is at the computer without
+  asking first.
+
+## Session end (handoff)
+
+Update docs/STATUS.md 'Last session' and 'Next step', tick docs/PLAN.md, add a dated entry to
+docs/DECISIONS.md for lasting decisions.
+
+1. `docs/STATUS.md`: update the "Last session" and "Next step" sections.
+2. `docs/PLAN.md`: tick finished items.
+3. If a lasting decision was made: add a dated entry to `docs/DECISIONS.md`.

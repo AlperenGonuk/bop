@@ -1,4 +1,4 @@
-//! Atlas (1536×2288, 8×11 hücre), PNG okuma/yazma ve QA için etiketli kontak sayfası.
+//! Atlas (1536×2288, 8×11 cells), PNG read/write and the labeled contact sheet for QA.
 
 use super::color::Rgba;
 use super::motion::{look_angle, LOOK_ROW, NEUTRAL_CELL, ROWS};
@@ -12,7 +12,7 @@ pub const ROWS_V2: usize = 11;
 pub const SHEET_W: usize = CELL_W * COLS;
 pub const SHEET_H: usize = CELL_H * ROWS_V2;
 
-/// RGBA bayt tamponu.
+/// RGBA byte buffer.
 pub struct Image {
     pub w: usize,
     pub h: usize,
@@ -50,7 +50,7 @@ impl Image {
     }
 }
 
-/// Mantıksal kareyi hücreye büyüterek yerleştirir (en yakın komşu).
+/// Scales a logical frame up into a cell (nearest neighbor).
 pub fn blit(sheet: &mut Image, col: usize, row: usize, f: &Frame, scale: usize) {
     let (ox, oy) = (col * CELL_W, row * CELL_H);
     for y in 0..f.h {
@@ -79,7 +79,7 @@ pub fn write_png(path: &std::path::Path, img: &Image) -> Result<(), String> {
     writer.finish().map_err(|e| format!("png: {e}"))
 }
 
-/// PNG'yi RGBA olarak okur (8 bit RGBA ya da RGB; diğerleri reddedilir).
+/// Reads a PNG as RGBA (8-bit RGBA, RGB or grayscale; others are rejected).
 pub fn read_png(path: &std::path::Path) -> Result<Image, String> {
     let file = std::fs::File::open(path).map_err(|e| format!("could not read {}: {e}", path.display()))?;
     let mut dec = png::Decoder::new(std::io::BufReader::new(file));
@@ -102,7 +102,7 @@ pub fn read_png(path: &std::path::Path) -> Result<Image, String> {
     Ok(Image { w, h, data })
 }
 
-// --- Küçük yazı tipi (3×5) ----------------------------------------------------------------
+// --- Tiny font (3×5) ----------------------------------------------------------------
 
 fn glyph(c: char) -> [u8; 5] {
     let rows: &str = match c.to_ascii_uppercase() {
@@ -177,8 +177,8 @@ pub fn text(img: &mut Image, x: i64, y: i64, s: &str, scale: i64, c: Rgba) {
 const LABEL_W: usize = 170;
 const HEADER_H: usize = 34;
 
-/// Kontak sayfası: açık zemin, ızgara, satır adları, kare numaraları, bakış açıları,
-/// zemin çizgisi; hatalı hücre kırmızı, uyarılı hücre turuncu çerçeve.
+/// Contact sheet: light background, grid, row names, frame numbers, look angles,
+/// ground line; cells with errors get a red frame, cells with warnings an orange one.
 pub fn contact_sheet(sheet: &Image, issues: &[Issue], ground_y: Option<usize>) -> Image {
     let bg = Rgba::rgb(0xEE, 0xEC, 0xF4);
     let cell_bg = Rgba::rgb(0xF8, 0xF7, 0xFC);
@@ -238,14 +238,14 @@ pub fn contact_sheet(sheet: &Image, issues: &[Issue], ground_y: Option<usize>) -
             }
         }
     }
-    // Izgara çizgileri.
+    // Grid lines.
     for r in 0..=rows {
         out.rect(LABEL_W as i64, (HEADER_H + r * CELL_H) as i64, SHEET_W as i64, 1, grid);
     }
     for c in 0..=COLS {
         out.rect((LABEL_W + c * CELL_W) as i64, HEADER_H as i64, 1, (rows * CELL_H) as i64, grid);
     }
-    // Sorunlu hücreler.
+    // Cells with issues.
     for level in [Level::Warning, Level::Error] {
         let color = if level == Level::Error { Rgba::rgb(0xE0, 0x38, 0x3E) } else { Rgba::rgb(0xF0, 0xA0, 0x20) };
         for i in issues.iter().filter(|i| i.level == level) {

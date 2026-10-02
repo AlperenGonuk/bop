@@ -1,4 +1,4 @@
-// Sohbet balonu: aç/kapa (pencere yukarı büyür), mesaj gönder, yeni sohbet, terminale devret.
+// Chat bubble: open/close (the window grows upward), send messages, new chat, hand off to the terminal.
 
 const { invoke } = window.__TAURI__.core;
 const { PhysicalSize, PhysicalPosition } = window.__TAURI__.dpi;
@@ -8,27 +8,27 @@ const PET_W = 192;
 const PET_H = 208;
 const PANEL_W = 320;
 const PANEL_H = 250;
-// Balon kuyruğunun ucu ile karakter arasında kalacak boşluk (px).
+// Gap between the tip of the bubble's tail and the character (px).
 const GAP = 2;
-// Kapanma kuralı tek: balon açıkken pencere odakta değilse kapanır. Olaya (blur) güvenilmez,
-// çünkü odak bir kez gidince ikinci blur gelmez; odak düzenli aralıkla da yoklanır.
-// İstisnalar yalnız süreli: cevap beklenirken ve keepOpen süresi dolana kadar kapanmaz.
-// Mesajlar kaybolmaz; pete tıklayınca yeniden görünür.
+// One closing rule: while the bubble is open, it closes when the window is not focused. The blur
+// event alone is not reliable (once focus is gone, no second blur arrives), so focus is also polled.
+// The only exceptions are timed: it stays open while waiting for a reply and until keepOpen expires.
+// Messages are not lost; clicking the pet shows them again.
 const FOCUS_POLL_MS = 500;
-// Açılıştan hemen sonraki odak kaybı kapatmasın (pencere boyutlanırken olabiliyor).
+// A focus loss right after opening should not close it (can happen while the window resizes).
 const BLUR_GRACE_MS = 400;
-// Sağ tık menüsü açıkken balon açık kalsın (menü odağı alabilir).
+// Keep the bubble open while the right-click menu is open (the menu may take focus).
 const MENU_HOLD_MS = 5000;
-// "Open in terminal" sonrası devir notu okunabilsin.
+// Leave time to read the handoff note after "Open in terminal".
 const HANDOFF_HOLD_MS = 5000;
-// Cevap arka planda (başka pencere odaktayken) geldiyse okunabilsin.
+// Leave time to read a reply that arrived in the background (while another window had focus).
 const UNFOCUSED_REPLY_MS = 20000;
 
 const $ = (id) => document.getElementById(id);
 
 export class Chat {
   /**
-   * hooks: { onBusy(), onReply(isError), log(line) } — pet animasyonu için.
+   * hooks: { onBusy(), onReply(isError), log(line) } for the pet animation.
    */
   constructor(win, hooks) {
     this.win = win;
@@ -55,13 +55,13 @@ export class Chat {
     window.addEventListener("keydown", (e) => {
       if (e.key === "Escape" && this.open) this.toggle(false);
     });
-    // Balonun dışındaki saydam alana tıklayınca kapan (pete tıklama kendi açar/kapar).
+    // Close on a click in the transparent area outside the bubble (a pet click toggles on its own).
     document.addEventListener("mousedown", (e) => {
       if (!this.open || e.button !== 0) return;
       if (e.target.closest("#bubble") || e.target.closest("#pet")) return;
       this.toggle(false);
     });
-    // Pencere dışına (masaüstü, başka pencere) tıklanınca kapan; ayrıntı FOCUS_POLL_MS'te.
+    // Close on a click outside the window (desktop, another window); see FOCUS_POLL_MS.
     window.addEventListener("blur", () => this.closeIfUnfocused());
     this.focusTimer = null;
     this.holdUntil = 0;
@@ -75,7 +75,7 @@ export class Chat {
       .catch(() => {});
   }
 
-  /** Balon `ms` boyunca odak dışındayken de açık kalsın; sonra normal kural geçerli. */
+  /** Keep the bubble open for `ms` even without focus; after that the normal rule applies. */
   keepOpen(ms = MENU_HOLD_MS) {
     this.holdUntil = Math.max(this.holdUntil, Date.now() + ms);
   }
@@ -86,15 +86,15 @@ export class Chat {
     this.toggle(false);
   }
 
-  /** Karakterin hücre içindeki görünen sınırları; balon buna yanaşır. */
+  /** Visible bounds of the character within its cell; the bubble snaps to them. */
   setBounds(bounds) {
     if (bounds) this.bounds = bounds;
   }
 
   /**
-   * Pencereyi pet ekranda yerinde kalacak şekilde büyütür/küçültür.
-   * Balon yukarıda yer varsa üstte, yoksa altta açılır; pencere çalışma alanında kalır.
-   * Hesap fiziksel pikselle yapılır (ölçek yuvarlaması kaydırmasın).
+   * Grows/shrinks the window so the pet stays in place on screen.
+   * The bubble opens above if there is room, otherwise below; the window stays in the work area.
+   * Math is done in physical pixels (so scale rounding does not shift anything).
    */
   async resize(open) {
     const scale = await this.win.scaleFactor();
@@ -105,7 +105,7 @@ export class Chat {
     const panel = $("panel");
 
     if (!open) {
-      // Petin şu anki ekran konumu (balon açıkken sürüklenmiş olabilir).
+      // The pet's current screen position (it may have been dragged while the bubble was open).
       const x = pos.x + px(this.petOffset.x);
       const y = pos.y + px(this.petOffset.y);
       await this.win.setSize(new PhysicalSize(px(PET_W), px(PET_H)));
@@ -115,7 +115,7 @@ export class Chat {
       return;
     }
 
-    // Hücrenin saydam kenarı kadar balon pete biner; kuyruk karaktere yanaşır.
+    // The bubble overlaps the cell's transparent margin; the tail snaps to the character.
     const overAbove = Math.max(0, this.bounds.top - GAP);
     const overBelow = Math.max(0, PET_H - this.bounds.bottom - GAP);
     const area = (await currentMonitor())?.workArea;
@@ -129,13 +129,13 @@ export class Chat {
       x = Math.min(Math.max(x, area.position.x), area.position.x + area.size.width - w);
       y = Math.min(Math.max(y, area.position.y), area.position.y + area.size.height - h);
     }
-    // Pet pencere içinde, ekrandaki eski yerine denk gelecek noktada.
+    // Place the pet inside the window where it lines up with its old screen position.
     this.petOffset = { x: (pos.x - x) / scale, y: (pos.y - y) / scale };
     pet.style.left = `${this.petOffset.x}px`;
     pet.style.top = `${this.petOffset.y}px`;
     panel.style.top = `${below ? this.petOffset.y + PET_H - over : this.petOffset.y - (PANEL_H - over)}px`;
     panel.style.height = `${PANEL_H}px`;
-    // Balon kuyruğu petin ortasını göstersin (balonun sol kenarı 6 px içeride).
+    // Point the bubble's tail at the pet's center (the bubble's left edge is inset 6 px).
     document.body.style.setProperty("--tail-x", `${this.petOffset.x + PET_W / 2 - 6}px`);
     document.body.classList.add("chat-open");
     document.body.classList.toggle("below", below);
@@ -165,7 +165,7 @@ export class Chat {
       }
       this.open = next;
     } catch (e) {
-      this.hooks.log(`balon açılamadı: ${e}`);
+      this.hooks.log(`bubble failed to open: ${e}`);
     } finally {
       this.resizing = false;
     }
@@ -181,12 +181,12 @@ export class Chat {
     this.renderTrust();
   }
 
-  /** Yeni sohbetin klasörü için güven sorusu henüz cevaplanmadı mı. */
+  /** Whether the trust question for the new chat's folder is still unanswered. */
   needsTrust() {
     return !!this.session && this.session.trusted == null;
   }
 
-  /** Claude Code'daki "bu klasöre güveniyor musun" sorusu; ilk mesajdan önce bir kez. */
+  /** Like Claude Code's "do you trust this folder" question; asked once before the first message. */
   renderTrust() {
     const existing = $("trust");
     if (!this.needsTrust()) {
@@ -194,7 +194,7 @@ export class Chat {
       return;
     }
     const cwd = this.session.cwd ?? "";
-    // Klasör ya da ev dizini bilgisi değiştiyse (ör. ev dizini geç geldi) kutu yeniden çizilir.
+    // Redraw the box if the folder or home directory changed (e.g. the home directory arrived late).
     const key = `${cwd}|${this.home ?? ""}`;
     if (existing?.dataset.key === key) return;
     existing?.remove();
@@ -215,7 +215,7 @@ export class Chat {
       "Trust: the pet can read files in this folder (but not change them), and web search is off. " +
         "Don't trust: the pet stays out of this folder and can only search the web."
     );
-    // Ev dizininin kendisi ya da onu içine alan bir klasör (ör. C:\): anahtarlar da okunabilir.
+    // The home directory itself or a folder containing it (e.g. C:\): keys could be read too.
     if (pathRest(this.home, cwd) !== null) {
       line("warn", "Careful: this folder contains your home folder. Keys and personal files could be read too.");
     }
@@ -234,7 +234,7 @@ export class Chat {
   }
 
   async answerTrust(trust) {
-    // Tek cevap: ikinci tık (ya da öbür düğme) cevap gelene kadar engelli.
+    // One answer only: a second click (or the other button) is blocked until the reply arrives.
     const buttons = [...document.querySelectorAll("#trust button")];
     if (buttons.some((b) => b.disabled)) return;
     buttons.forEach((b) => (b.disabled = true));
@@ -263,10 +263,10 @@ export class Chat {
     return el;
   }
 
-  /** Pet cevabı: metin, kaynaklar varsa altında katlanmış "Sources" listesi. */
+  /** Pet reply: the text, plus a collapsed "Sources" list below it if there are sources. */
   addReply(text) {
-    // Güvenilen (dosya okuyan) sohbette web araması yok, dolayısıyla kaynak da yok: cevaptaki
-    // bağlantılar tıklanabilir yapılmaz (okunan bir içerik bağlantıya gömülüp dışarı gitmesin).
+    // A trusted (file-reading) chat has no web search and therefore no sources: links in the reply
+    // are not made clickable (so content read from files cannot be smuggled out via a link).
     if (this.session?.trusted) {
       this.add("pet", text);
       return;
@@ -280,12 +280,12 @@ export class Chat {
     summary.textContent = `Sources (${sources.length})`;
     details.append(summary);
     for (const s of sources) {
-      // href yok: her açılış (tık, klavye) open_url'deki adres denetiminden geçer; orta tık ya da
-      // sürükleme WebView'in kendi gezinmesine düşmez.
+      // No href: every open (click, keyboard) goes through the URL check in open_url; a middle click
+      // or drag never falls through to the WebView's own navigation.
       const a = document.createElement("a");
       a.setAttribute("role", "link");
       a.tabIndex = 0;
-      // Gerçek alan adı her zaman görünür: başlık bir şey, adres başka bir yer olmasın.
+      // Always show the real domain, so a title cannot point somewhere else.
       const title = document.createElement("span");
       title.textContent = s.title;
       const host = document.createElement("span");
@@ -294,12 +294,12 @@ export class Chat {
       a.append(title, host);
       a.title = s.url;
       const open = () =>
-        invoke("open_url", { url: s.url }).catch((err) => this.hooks.log(`bağlantı açılamadı: ${err}`));
+        invoke("open_url", { url: s.url }).catch((err) => this.hooks.log(`link failed to open: ${err}`));
       a.addEventListener("click", open);
       a.addEventListener("keydown", (e) => e.key === "Enter" && open());
       details.append(a);
     }
-    // Açılınca liste görünür kalsın.
+    // Keep the list in view when expanded.
     details.addEventListener("toggle", () => details.open && details.scrollIntoView({ block: "end" }));
     el.append(details);
   }
@@ -337,7 +337,7 @@ export class Chat {
       this.add("pet error", String(e));
       this.hooks.onReply(true);
     } finally {
-      // Cevap arka planda geldiyse bir süre okunabilsin, sonra normal kural (odak yoksa kapan).
+      // If the reply arrived in the background, keep it readable for a while, then the normal rule applies (close if unfocused).
       if (!document.hasFocus()) this.keepOpen(UNFOCUSED_REPLY_MS);
       this.setBusy(false);
       input.focus();
@@ -354,12 +354,12 @@ export class Chat {
 
   async toTerminal() {
     if (this.busy || !this.session?.sessionId) return;
-    // Açılan terminal odağı alır; devir notu görünsün diye balon bir süre açık kalır. Süre not
-    // yazıldıktan sonra yeniden başlar (terminal yavaş açılsa da not okunabilsin).
+    // The new terminal takes focus; the bubble stays open for a while so the handoff note is visible.
+    // The timer restarts after the note is written (so it is readable even if the terminal opens slowly).
     this.keepOpen(HANDOFF_HOLD_MS);
     try {
       await invoke("chat_open_terminal");
-      // Devredilen oturuma pet artık yazmaz; sıradaki mesaj yeni oturum açar.
+      // The pet no longer writes to the handed-off session; the next message starts a new one.
       this.session = await invoke("chat_status");
       $("messages").replaceChildren();
       this.add("note", "Chat moved to the terminal. Your next message starts a new chat.");
@@ -372,9 +372,9 @@ export class Chat {
 }
 
 /**
- * `p`, `base` klasörü ya da onun içindeyse `base`'den sonraki klasör adları ([] = kendisi),
- * değilse null. Windows yolları: büyük/küçük harf ve ayraç farkı önemsiz. Klasör adı klasör adıyla
- * karşılaştırılır (karakter konumuyla değil: küçük harfe çevirmek "İ" gibi harflerde uzunluğu değiştirir).
+ * If `p` is `base` or inside it, returns the folder names after `base` ([] = base itself),
+ * otherwise null. Windows paths: case and separator differences are ignored. Folder names are
+ * compared one by one (not by character offset: lowercasing changes the length of letters like "İ").
  */
 export function pathRest(p, base) {
   if (!p || !base) return null;
@@ -386,7 +386,7 @@ export function pathRest(p, base) {
   return same ? pp.slice(bp.length) : null;
 }
 
-/** CLI gibi kısa yol: kullanıcının ev dizini "~", uzunsa son iki klasör. */
+/** Short path like the CLI: the user's home directory as "~", only the last two folders if long. */
 export function shortPath(p, home) {
   if (!p) return "?";
   const rest = pathRest(p, home);
@@ -397,19 +397,20 @@ export function shortPath(p, home) {
   return parts.length <= 2 ? p : `…\\${parts.slice(-2).join("\\")}`;
 }
 
-// Adres: boşluksuz; içinde tek düzey parantez olabilir (ör. Wikipedia'da "Mercury_(planet)").
-// `<` ve `>` adresin parçası sayılmaz: "<https://…>" biçimindeki adreste köşeli parantez dışarıda kalır.
+// URL: no whitespace; may contain one level of parentheses (e.g. Wikipedia's "Mercury_(planet)").
+// `<` and `>` are not part of the URL: in "<https://…>" the angle brackets stay outside.
 const URL_RE = String.raw`https?:\/\/(?:[^\s()<>]|\([^\s()<>]*\))+`;
 const LINK_LINE = new RegExp(String.raw`^\s*(?:[-*•]\s*)?\[([^\]]+)\]\((${URL_RE})\)\s*$`);
 const URL_LINE = new RegExp(String.raw`^\s*(?:[-*•]\s*)?<?(${URL_RE})>?\s*$`);
 const INLINE_LINK = new RegExp(String.raw`\[([^\]]+)\]\((${URL_RE})\)`, "g");
-// Yalnız bilinen kaynak başlıkları ("Kaynaklar:", "**Sources:**"); ":" ile biten her cümle değil.
+// Only known source headings ("Sources:", "**Sources:**"), not every line ending in ":".
+// Turkish headings (kaynaklar, kaynak, referanslar) are kept on purpose: the model may answer in Turkish.
 const SOURCES_HEADING = /^\s*\**\s*(kaynaklar|kaynak|sources?|references|referanslar)\s*:?\s*\**\s*$/i;
 
 /**
- * Cevabın sonundaki bağlantı satırlarını (ve hemen üstlerindeki kısa başlığı) kaynak olarak ayırır.
- * Metin içindeki [başlık](adres) bağlantıları yalnız başlık olarak kalır, adres kaynaklara eklenir.
- * Döner: { body, sources: [{ title, url }] }
+ * Splits the link lines at the end of a reply (and the short heading right above them) into sources.
+ * Inline [title](url) links keep only the title in the text; the URL is added to the sources.
+ * Returns: { body, sources: [{ title, url }] }
  */
 export function splitSources(text) {
   const lines = text.replace(/\r/g, "").split("\n");
@@ -431,7 +432,7 @@ export function splitSources(text) {
     }
   }
   if (sources.length && end > 0 && SOURCES_HEADING.test(lines[end - 1])) end--;
-  // Cevabın kendisi bağlantıysa (ör. "repo adresi ne?") katlanmaz, metin olarak kalır.
+  // If the reply itself is just a link (e.g. "what's the repo URL?"), keep it as text, not collapsed.
   if (!lines.slice(0, end).join("").trim()) {
     return { body: text.replace(/\*\*(.+?)\*\*/g, "$1").trim(), sources: [] };
   }
@@ -460,7 +461,7 @@ export function hostOf(url) {
   }
 }
 
-/** Mesaj satırı yazdıkça en çok 3 satıra uzar. */
+/** The message input grows as you type, up to 3 lines. */
 function autoGrow(el) {
   el.style.height = "20px";
   el.style.height = `${Math.min(el.scrollHeight, 60)}px`;

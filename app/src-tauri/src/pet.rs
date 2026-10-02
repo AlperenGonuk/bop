@@ -1,7 +1,7 @@
-//! Pet klasörü yükleyici (Codex formatı).
+//! Pet folder loader (Codex format).
 //!
-//! `pet.json`'dan yalnız 5 alan okunur (KARARLAR.md, 3. karar); diğer alanlar yok sayılır.
-//! v1/v2 ayrımı ve kare sayımı görsel üzerinden arayüz tarafında yapılır.
+//! Only 5 fields are read from `pet.json` (DECISIONS.md, decision 3); other fields are ignored.
+//! Telling v1 from v2 and counting frames is done in the frontend from the image.
 
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -21,7 +21,7 @@ pub struct PetInfo {
     pub sprite_version_number: Option<u32>,
 }
 
-/// Yüklenmiş pet: bilgiler, klasör, spritesheet dosyasının tam yolu ve isteğe bağlı ayarlar.
+/// A loaded pet: info, folder, full path of the spritesheet and optional settings.
 #[derive(Debug, Clone)]
 pub struct Pet {
     pub info: PetInfo,
@@ -30,7 +30,7 @@ pub struct Pet {
     pub config: PetConfig,
 }
 
-/// Ana spritesheet'in `bop.json`'daki ayrılmış adı.
+/// Reserved name of the main spritesheet in `bop.json`.
 pub const MAIN_SHEET: &str = "main";
 pub const CONFIG_FORMAT: u64 = 1;
 const FRAME_MS_RANGE: std::ops::RangeInclusive<u64> = 30..=2000;
@@ -44,24 +44,24 @@ pub struct AnimationDef {
     pub frame_ms: Option<u64>,
 }
 
-/// `bop.json` (isteğe bağlı; KARARLAR.md 3. ve 8b. karar).
-/// Hoşgörülü okunur: hatalı giriş atlanır, `warnings`'e yazılır, pet bozulmaz.
-/// Izgara ve satır sınırı denetimi görsel gerektirdiği için arayüzde yapılır.
+/// `bop.json` (optional; DECISIONS.md, decisions 3 and 8b).
+/// Read leniently: an invalid entry is skipped and written to `warnings`; the pet still works.
+/// Grid and row-limit checks need the image, so they are done in the frontend.
 #[derive(Debug, Clone, Default, Serialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct PetConfig {
-    /// Dosya var mıydı.
+    /// Whether the file existed.
     pub present: bool,
     pub format_version: u64,
-    /// Tüm animasyonlar için varsayılan kare süresi.
+    /// Default frame duration for all animations.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub frame_ms: Option<u64>,
-    /// Ek sheet adı → tam yol.
+    /// Extra sheet name → full path.
     pub sheets: BTreeMap<String, PathBuf>,
     pub animations: BTreeMap<String, AnimationDef>,
-    /// Durum → animasyon adı.
+    /// State → animation name.
     pub states: BTreeMap<String, String>,
-    /// Boşta arada oynayan kısa hareketler; `None` ise varsayılan.
+    /// Short moves played now and then while idle; `None` means the default.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub idle_extras: Option<Vec<String>>,
     pub warnings: Vec<String>,
@@ -78,7 +78,7 @@ fn frame_ms_of(v: Option<&Value>, what: &str, warnings: &mut Vec<String>) -> Opt
     }
 }
 
-/// `bop.json` metnini ayrıştırır. `dir` ek sheet yollarını çözmek için.
+/// Parses `bop.json` text. `dir` is used to resolve extra sheet paths.
 pub fn parse_config(text: &str, dir: &Path, known_states: &[&str]) -> PetConfig {
     let mut c = PetConfig { present: true, format_version: CONFIG_FORMAT, ..Default::default() };
     let w = &mut c.warnings;
@@ -99,12 +99,12 @@ pub fn parse_config(text: &str, dir: &Path, known_states: &[&str]) -> PetConfig 
         Some(Some(n)) => {
             c.format_version = n;
             if n > CONFIG_FORMAT {
-                w.push(format!("formatVersion {n} daha yeni; bilinen alanlar okunuyor"));
+                w.push(format!("formatVersion {n} is newer; reading known fields"));
             }
         }
         Some(None) => w.push("formatVersion must be a number, ignored".into()),
     }
-    c.frame_ms = frame_ms_of(root.get("frameMs"), "genel", w);
+    c.frame_ms = frame_ms_of(root.get("frameMs"), "global", w);
 
     if let Some(sheets) = root.get("sheets").and_then(Value::as_object) {
         for (name, v) in sheets {
@@ -187,14 +187,14 @@ fn load_config(dir: &Path, known_states: &[&str]) -> PetConfig {
 }
 
 pub fn parse_pet_json(text: &str) -> Result<PetInfo, String> {
-    // Codex dosyaları BOM ile kaydedilmiş olabilir.
+    // Codex files may be saved with a BOM.
     let text = text.trim_start_matches('\u{feff}');
     serde_json::from_str(text).map_err(|e| format!("could not read pet.json: {e}"))
 }
 
-/// Pet dosya yolları pet klasörünün dışına çıkamaz (mutlak yol ya da `..` yok). Ayırıcı her
-/// platformda yalnız `/`: `\` ve `:` reddedilir (Linux'ta `C:\x` tek bir dosya adı sayılırdı, aynı
-/// pet Windows'ta klasör dışına çıkabilirdi).
+/// Pet file paths cannot leave the pet folder (no absolute paths, no `..`). The separator is `/`
+/// on every platform: `\` and `:` are rejected (on Linux `C:\x` would be a single file name, while
+/// the same pet could escape its folder on Windows).
 fn safe_relative(path: &str) -> Result<&Path, String> {
     let p = Path::new(path);
     let ok = !path.is_empty()
@@ -207,7 +207,7 @@ fn safe_relative(path: &str) -> Result<&Path, String> {
     }
 }
 
-/// Mutlak yol; Windows'taki `\\?\C:\...` önekini (UNC olmayanlarda) atar.
+/// Absolute path; strips the Windows `\\?\C:\...` prefix (for non-UNC paths).
 pub fn canonical(path: &Path) -> Result<PathBuf, String> {
     let p = fs::canonicalize(path).map_err(|e| format!("{} not found: {e}", path.display()))?;
     let s = p.to_string_lossy();
@@ -218,7 +218,7 @@ pub fn canonical(path: &Path) -> Result<PathBuf, String> {
 }
 
 pub fn load_pet(dir: &Path, known_states: &[&str]) -> Result<Pet, String> {
-    // Asset kapsamı ve yol karşılaştırmaları için mutlak yol.
+    // Absolute path for the asset scope and path comparisons.
     let dir = &canonical(dir)?;
     let json_path = dir.join("pet.json");
     let text = fs::read_to_string(&json_path)
@@ -237,10 +237,10 @@ mod tests {
     use super::*;
 
     #[test]
-    fn bes_alan_okunur_fazlasi_yok_sayilir() {
+    fn reads_five_fields_ignores_extra() {
         let info = parse_pet_json(
             r#"{"displayName":"Johnny","spriteVersionNumber":2,"id":"johnny",
-                "spritesheetPath":"spritesheet.webp","description":"x","kind":"bilinmeyen"}"#,
+                "spritesheetPath":"spritesheet.webp","description":"x","kind":"unknown"}"#,
         )
         .unwrap();
         assert_eq!(info.id, "johnny");
@@ -248,7 +248,7 @@ mod tests {
     }
 
     #[test]
-    fn surum_numarasi_ve_aciklama_istege_bagli() {
+    fn version_number_and_description_are_optional() {
         let info = parse_pet_json(
             "\u{feff}{\"id\":\"a\",\"displayName\":\"A\",\"spritesheetPath\":\"s.webp\"}",
         )
@@ -267,7 +267,7 @@ mod tests {
     }
 
     #[test]
-    fn gecerli_ayar_okunur() {
+    fn valid_config_is_read() {
         let d = temp_pet_dir("ok");
         let c = parse_config(
             r#"{"formatVersion":1,"frameMs":120,
@@ -282,7 +282,7 @@ mod tests {
         assert_eq!(c.frame_ms, Some(120));
         assert_eq!(c.sheets["extra"], d.join("extra.webp"));
         assert_eq!(c.animations["yawn"], AnimationDef { sheet: "extra".into(), row: 0, frame_ms: Some(140) });
-        // sheet verilmezse ana sheet.
+        // Without a sheet, the main sheet is used.
         assert_eq!(c.animations["slow-idle"].sheet, MAIN_SHEET);
         assert_eq!(c.states["thinking"], "yawn");
         assert_eq!(c.idle_extras.as_deref(), Some(&["yawn".to_string(), "look".to_string()][..]));
@@ -290,47 +290,47 @@ mod tests {
     }
 
     #[test]
-    fn hatali_girisler_atlanir_pet_bozulmaz() {
+    fn invalid_entries_are_skipped_pet_still_loads() {
         let d = temp_pet_dir("bad");
         let c = parse_config(
             r#"{"formatVersion":"x","frameMs":5,
-                "sheets":{"main":"extra.webp","yok":"yok.webp","kacak":"../extra.webp","sayi":3},
-                "animations":{"a":{"sheet":"yok","row":0},"b":{"row":-1},"c":{"row":2,"frameMs":99999}},
-                "states":{"uyuyor":"a","thinking":5},
+                "sheets":{"main":"extra.webp","missing":"missing.webp","escape":"../extra.webp","number":3},
+                "animations":{"a":{"sheet":"missing","row":0},"b":{"row":-1},"c":{"row":2,"frameMs":99999}},
+                "states":{"sleeping":"a","thinking":5},
                 "idleExtras":"yawn"}"#,
             &d,
             STATES,
         );
         assert!(c.sheets.is_empty());
-        // Yalnız "c" geçerli; hatalı frameMs'i yok sayılır.
+        // Only "c" is valid; its invalid frameMs is ignored.
         assert_eq!(c.animations.keys().collect::<Vec<_>>(), vec!["c"]);
         assert_eq!(c.animations["c"].frame_ms, None);
         assert!(c.states.is_empty());
         assert_eq!(c.idle_extras, None);
         assert_eq!(c.frame_ms, None);
-        // formatVersion, frameMs, 4 sheet, 3 animasyon, 2 durum, idleExtras.
+        // formatVersion, frameMs, 4 sheets, 3 animations, 2 states, idleExtras.
         assert_eq!(c.warnings.len(), 12, "{:#?}", c.warnings);
         let _ = fs::remove_dir_all(&d);
     }
 
     #[test]
-    fn bozuk_ya_da_eksik_ayar_dosyasi() {
+    fn broken_or_missing_config_file() {
         let d = temp_pet_dir("broken");
-        let c = parse_config("{ bozuk", &d, STATES);
+        let c = parse_config("{ broken", &d, STATES);
         assert!(c.present && c.warnings.len() == 1 && c.animations.is_empty());
-        // Dosya yoksa uyarısız varsayılan.
+        // No file: default config without warnings.
         let none = load_config(&d, STATES);
         assert!(!none.present && none.warnings.is_empty());
         let _ = fs::remove_dir_all(&d);
     }
 
     #[test]
-    fn klasor_disina_cikan_yol_reddedilir() {
+    fn path_leaving_pet_folder_is_rejected() {
         assert!(safe_relative("../x.webp").is_err());
         assert!(safe_relative("C:\\x.webp").is_err());
         assert!(safe_relative("..\\..\\x.webp").is_err());
         assert!(safe_relative("C:x.webp").is_err());
         assert!(safe_relative("").is_err());
-        assert!(safe_relative("alt/s.webp").is_ok());
+        assert!(safe_relative("sub/s.webp").is_ok());
     }
 }

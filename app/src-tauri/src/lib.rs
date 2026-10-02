@@ -13,8 +13,8 @@ use std::sync::Mutex;
 use tauri::menu::{CheckMenuItem, Menu, MenuItem, PredefinedMenuItem, Submenu};
 use tauri::{Emitter, Manager, State};
 
-/// Geliştirme için pet klasörü: `--pet <klasör>` argümanı, yoksa `BOP_DIR`. Verilirse seçimi
-/// geçersiz kılar ve `config.json` izlenmez (KARARLAR.md, 28. karar).
+/// Pet folder for development: the `--pet <folder>` argument, else `BOP_DIR`. When given, it
+/// overrides the selection and `config.json` is not watched (DECISIONS.md, decision 28).
 fn pet_dir_override() -> Option<PathBuf> {
     let mut args = std::env::args().skip(1);
     while let Some(a) = args.next() {
@@ -29,7 +29,7 @@ fn known_states() -> Vec<&'static str> {
     state::STATES.iter().map(|(n, _)| *n).collect()
 }
 
-/// Açılacak pet: geliştirme klasörü, yoksa seçili kurulu pet, o da yoksa gömülü Pıtır.
+/// Pet to open: the development folder, else the selected installed pet, else the bundled Pitir.
 fn load_active(dev: &Option<PathBuf>) -> Result<Pet, String> {
     let known = known_states();
     if let Some(dir) = dev {
@@ -38,21 +38,22 @@ fn load_active(dev: &Option<PathBuf>) -> Result<Pet, String> {
     pets::ensure_default_pet();
     let dir = pets::active_dir().ok_or("home folder not found")?;
     pet::load_pet(&dir, &known).or_else(|e| {
-        eprintln!("bop: {e}; varsayılan pete dönülüyor");
+        eprintln!("bop: {e}; falling back to the default pet");
         let fallback = pets::pets_dir().ok_or("home folder not found")?.join(pets::DEFAULT_PET_ID);
         pet::load_pet(&fallback, &known)
     })
 }
 
-/// Komut satırı: `bop --version | list | use <id> | install <klasör> | toggle | stop | hatch ...`.
-/// Pencere açmadan iş görüp çıkış kodunu döner; başka bir argümanda `None` (pencere açılır).
-/// Çıktı İngilizce: skill'ler ve kullanıcılar okur (KARARLAR.md, 21. karar).
+/// Command line: `bop --version | list | use <id> | install <folder> | toggle | stop | hatch ...`.
+/// Does the work without opening a window and returns the exit code; `None` for any other
+/// argument (the window opens). Output is in English: skills and users read it
+/// (DECISIONS.md, decision 21).
 pub fn cli_main(args: &[String]) -> Option<i32> {
     if args.first().map(String::as_str) == Some("hatch") {
         return Some(hatch::cli(&args[1..]));
     }
     let result: Result<String, String> = match args.first()?.as_str() {
-        // Kurulum betikleri (plugin/scripts/install.*) kurulu sürümü plugin sürümüyle karşılaştırır.
+        // Install scripts (plugin/scripts/install.*) compare the installed version with the plugin version.
         "--version" | "version" => Ok(format!("bop {}", env!("CARGO_PKG_VERSION"))),
         "list" => {
             pets::ensure_default_pet();
@@ -101,7 +102,7 @@ pub fn cli_main(args: &[String]) -> Option<i32> {
 
 struct ActivePet {
     pet: Mutex<Result<Pet, String>>,
-    /// `--pet` / `BOP_DIR` verildiyse seçim izlenmez.
+    /// If `--pet` / `BOP_DIR` was given, the selection is not watched.
     dev: Option<PathBuf>,
 }
 
@@ -110,9 +111,9 @@ struct ActivePet {
 struct PetView {
     #[serde(flatten)]
     info: PetInfo,
-    /// Spritesheet'in tam yolu; arayüz asset protokolüyle yükler.
+    /// Full path of the spritesheet; the UI loads it via the asset protocol.
     spritesheet_file: PathBuf,
-    /// `bop.json` (yoksa `present: false`).
+    /// `bop.json` (`present: false` if missing).
     config: pet::PetConfig,
 }
 
@@ -127,25 +128,25 @@ fn pet_info(active: State<ActivePet>) -> Result<PetView, String> {
     })
 }
 
-/// Arayüz günlüğünü stderr'e yazar (webview konsolu kapalıyken tanı için).
+/// Writes a UI log line to stderr (for diagnosis while the webview console is closed).
 #[tauri::command]
 fn log(line: String) {
     eprintln!("bop: {line}");
 }
 
-/// Durum sözlüğü: [[durum, üst durum | null], ...]
+/// State vocabulary: [[state, parent state | null], ...]
 #[tauri::command]
 fn state_vocabulary() -> Vec<(&'static str, Option<&'static str>)> {
     state::STATES.to_vec()
 }
 
-/// Son bilinen durum (arayüz açılışta ister).
+/// Last known state (the UI requests it on startup).
 #[tauri::command]
 fn current_state() -> Option<state::PetState> {
     state::state_path().and_then(|p| state::read_state(&p))
 }
 
-/// Seçili pet değiştiyse yükler, asset iznini açar ve arayüze `pet-changed` gönderir.
+/// If the selected pet changed, loads it, grants asset access and sends `pet-changed` to the UI.
 fn reload_pet(app: &tauri::AppHandle) {
     let active = app.state::<ActivePet>();
     if active.dev.is_some() {
@@ -167,7 +168,7 @@ fn reload_pet(app: &tauri::AppHandle) {
             }
             let _ = app.emit("pet-changed", ());
         }
-        Err(e) => eprintln!("bop: seçilen pet yüklenemedi: {e}"),
+        Err(e) => eprintln!("bop: couldn't load the selected pet: {e}"),
     }
 }
 
@@ -176,9 +177,9 @@ fn quit(app: &tauri::AppHandle) {
     app.exit(0);
 }
 
-/// Dosyaları yoklar: `state.json` değişince `pet-state`, `config.json` değişince pet yeniden
-/// yüklenir, `control` kapatma ister; her saniye tek örnek kalp atışı yazılır.
-/// Yeni bağımlılık olmasın diye dosya izleyici yerine değişiklik zamanı yoklaması.
+/// Polls files: a `state.json` change emits `pet-state`, a `config.json` change reloads the pet,
+/// `control` requests quitting; the single-instance heartbeat is written every second.
+/// Polls modification times instead of using a file watcher, to avoid a new dependency.
 fn watch_files(app: tauri::AppHandle) {
     let Some(path) = state::state_path() else { return };
     let config = pets::config_path();
@@ -206,7 +207,7 @@ fn watch_files(app: tauri::AppHandle) {
             let modified = std::fs::metadata(&path).and_then(|m| m.modified()).ok();
             if modified.is_some() && modified != last {
                 last = modified;
-                // Yarım okuma olmaz (atomik yazma), yine de bozuksa sonraki turda tekrar dener.
+                // No partial reads (atomic writes), but if it is corrupt anyway, retry on the next round.
                 match state::read_state(&path) {
                     Some(s) => {
                         let _ = app.emit("pet-state", s);
@@ -219,13 +220,13 @@ fn watch_files(app: tauri::AppHandle) {
     });
 }
 
-/// Aktif pet sohbeti (klasör burada sabitlenir).
+/// Active pet chat (the folder is fixed here).
 #[tauri::command]
 fn chat_status() -> chat::ChatSession {
     chat::active_session()
 }
 
-/// Mesaj gönderir; arka planda çalışır, arayüz donmaz.
+/// Sends a message; runs in the background so the UI doesn't freeze.
 #[tauri::command]
 async fn chat_send(message: String) -> Result<chat::ChatReply, String> {
     tauri::async_runtime::spawn_blocking(move || chat::send(&message))
@@ -244,7 +245,7 @@ fn chat_open_terminal() -> Result<chat::ChatSession, String> {
     chat::open_in_terminal()
 }
 
-/// Klasör güven sorusunun cevabı.
+/// Answer to the folder trust question.
 #[tauri::command]
 fn chat_trust(trust: bool) -> chat::ChatSession {
     chat::set_trust(trust)
@@ -269,7 +270,7 @@ struct CursorInfo {
     window_y: i32,
 }
 
-/// İmlecin ve pencerenin ekran konumu (fiziksel piksel); fareye bakma için.
+/// Screen position of the cursor and the window (physical pixels); for looking at the mouse.
 #[tauri::command]
 fn cursor_info(window: tauri::Window) -> Result<CursorInfo, String> {
     let c = window.cursor_position().map_err(|e| e.to_string())?;
@@ -287,7 +288,7 @@ fn position_path() -> Option<PathBuf> {
     state::home_dir().map(|h| h.join("window.json"))
 }
 
-/// Petin ekran konumunu (fiziksel, sol üst) kaydeder.
+/// Saves the pet's screen position (physical, top-left).
 #[tauri::command]
 fn save_position(x: i32, y: i32) {
     if let (Some(p), Ok(bytes)) = (position_path(), serde_json::to_vec(&SavedPosition { x, y })) {
@@ -295,7 +296,7 @@ fn save_position(x: i32, y: i32) {
     }
 }
 
-/// Kayıtlı konum bağlı bir monitörün içindeyse pencereyi oraya taşır.
+/// Moves the window to the saved position if it lies within a connected monitor.
 fn restore_position(window: &tauri::WebviewWindow) {
     let Some(saved) = position_path()
         .and_then(|p| std::fs::read_to_string(p).ok())
@@ -305,7 +306,7 @@ fn restore_position(window: &tauri::WebviewWindow) {
     };
     let on_screen = window.available_monitors().unwrap_or_default().iter().any(|m| {
         let (p, s) = (m.position(), m.size());
-        // Petin sol üst köşesinin biraz içi görünür olmalı.
+        // A bit inside the pet's top-left corner must be visible.
         let (x, y) = (saved.x + 40, saved.y + 40);
         x >= p.x && y >= p.y && x < p.x + s.width as i32 && y < p.y + s.height as i32
     });
@@ -314,7 +315,7 @@ fn restore_position(window: &tauri::WebviewWindow) {
     }
 }
 
-/// Sağ tık menüsü (yerel popup). "Switch pet" listesi her açılışta taranır.
+/// Right-click menu (native popup). The "Switch pet" list is rescanned each time it opens.
 #[tauri::command]
 fn show_menu(window: tauri::Window, active: State<ActivePet>) -> Result<(), String> {
     let err = |e: tauri::Error| e.to_string();
@@ -342,11 +343,11 @@ fn show_menu(window: tauri::Window, active: State<ActivePet>) -> Result<(), Stri
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    // Pet'in açacağı claude süreçleri, peti başlatan Claude oturumunun alt oturumu sanılmasın.
+    // So claude processes started by the pet aren't mistaken for subsessions of the Claude session that launched it.
     chat::clean_inherited_env();
-    // Tek örnek: pet zaten açıksa ikincisi açılmaz.
+    // Single instance: if the pet is already open, a second one doesn't start.
     if pets::other_instance_running() {
-        eprintln!("bop: pet zaten açık");
+        eprintln!("bop: pet is already running");
         return;
     }
     pets::beat();
@@ -358,7 +359,7 @@ pub fn run() {
     let active = ActivePet { pet: Mutex::new(loaded), dev };
     tauri::Builder::default()
         .setup(|app| {
-            // Asset kapsamı yalnız pet klasörleri; aktif pet çalışma anında eklenir (13. karar).
+            // Asset scope covers only pet folders; the active pet is added at runtime (decision 13).
             let dir = app.state::<ActivePet>().pet.lock().ok().and_then(|p| p.as_ref().ok().map(|p| p.dir.clone()));
             if let Some(dir) = dir {
                 app.asset_protocol_scope().allow_directory(&dir, true)?;
@@ -378,7 +379,7 @@ pub fn run() {
                     eprintln!("bop: {e}");
                 }
             } else if let Some(pet_id) = id.strip_prefix("pet:") {
-                // Seçim dosyaya yazılır; izleyici peti yükler (terminalden `bop use` ile aynı yol).
+                // The selection is written to a file; the watcher loads the pet (same path as `bop use` from a terminal).
                 if let Err(e) = pets::use_pet(pet_id) {
                     eprintln!("bop: {e}");
                 }
@@ -402,5 +403,5 @@ pub fn run() {
             save_position
         ])
         .run(tauri::generate_context!())
-        .expect("bop başlatılamadı");
+        .expect("failed to start bop");
 }

@@ -1,22 +1,22 @@
-// Boştayken pet: imlece bakma (yalnız v2) ve arada kısa hareketler (idleExtras).
+// Idle pet: looking at the cursor (v2 only) and occasional short moves (idleExtras).
 import { lookIndex } from "./pet.js";
 
 const { invoke } = window.__TAURI__.core;
 
 const LOOK_TICK_MS = 120;
-// İmleç bu yarıçap (mantıksal px) içindeyse bakar; petin üstündeyse (ölü bölge) nötr ön pozu
-// gösterir (docs/SPRITE.md, (0,6) nötr hücre).
+// Look at the cursor within this radius (logical px); over the pet (dead zone) show the neutral
+// front pose (docs/SPRITE.md, neutral cell (0,6)).
 const LOOK_RADIUS = 450;
 const LOOK_DEADZONE = 60;
-// Kısa hareketler arası bekleme (ms).
+// Wait between short moves (ms).
 const EXTRA_MIN_MS = 15_000;
 const EXTRA_MAX_MS = 30_000;
 
 export class IdleLife {
   /**
    * opts: { pet, player, canvas, canAct(): bool, play(name, opts), release() }
-   * canAct: pet boşta mı (idle durum, sürükleme yok, sohbet beklemiyor).
-   * release: bakış/hareket bitince mevcut durumun animasyonuna dön.
+   * canAct: whether the pet is free (idle state, not dragging, not waiting on chat).
+   * release: return to the current state's animation after a look/move ends.
    */
   constructor(opts) {
     Object.assign(this, opts);
@@ -51,7 +51,7 @@ export class IdleLife {
     const dx = (info.cursorX - cx) / scale;
     const dy = (info.cursorY - cy) / scale;
     const dist = Math.hypot(dx, dy);
-    if (!this.canAct()) return; // istek sürerken durum değişmiş olabilir
+    if (!this.canAct()) return; // state may have changed during the request
     if (dist > LOOK_DEADZONE && dist < LOOK_RADIUS) {
       const i = lookIndex(dx, dy);
       this.tracking = true;
@@ -88,7 +88,7 @@ export class IdleLife {
     return ok;
   }
 
-  /** Durum değişince yarım kalan kısa hareketi bırak. */
+  /** Drop an unfinished short move when the state changes. */
   interrupt() {
     this.extraPlaying = false;
     this.tracking = false;

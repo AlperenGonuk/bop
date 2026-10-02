@@ -8,9 +8,7 @@ permission, cheers when a task is done and looks sad when something fails. Click
 Claude in a little terminal-style speech bubble. You can make new pets with Claude, and pets use
 the same format as Codex pets.
 
-<p align="center">
-  <img src="docs/images/bop-brand.png" alt="Bop, a desktop pet for Claude Code — Pitir the mandarin mascot at a computer" width="960">
-</p>
+![Bop, a desktop pet for Claude Code: Pitir the mandarin mascot at a computer](docs/images/bop-brand.png)
 
 The default pet is Pitir, a small mandarin drawn entirely by Bop's own drawing engine.
 
@@ -19,6 +17,11 @@ The default pet is Pitir, a small mandarin drawn entirely by Bop's own drawing e
 > [Issues](https://github.com/AlperenGonuk/bop/issues).
 
 ## Install
+
+Bop works in Claude Code on Windows, macOS and Linux (the terminal, IDE extensions and the
+desktop app's Code tab), because the pet is a desktop app on your own computer. In claude.ai
+chat and in Cowork the plugin does nothing: chat does not load hooks, and the Bop app is not
+installed there, so its hooks exit without doing anything.
 
 You need Claude Code. In a terminal:
 
@@ -61,15 +64,15 @@ whether to switch to it.
 
 ## What gets downloaded
 
-The plugin itself contains only text files (skills, hooks, install scripts). The Bop app is a
-separate executable built from the Rust/Tauri source in [`app/`](app/) by
-[GitHub Actions](.github/workflows/release.yml) and attached to each
+The plugin is this repository: the skills, the hooks, the install scripts and the source of the
+Bop app. It contains no executables. The Bop app is built from the Rust/Tauri source in
+[`app/`](app/) by [GitHub Actions](.github/workflows/release.yml) and attached to each
 [GitHub release](https://github.com/AlperenGonuk/bop/releases).
 
-`/bop setup` runs [`plugin/scripts/install.ps1`](plugin/scripts/install.ps1) on Windows or
-[`plugin/scripts/install.sh`](plugin/scripts/install.sh) on macOS and Linux. The script:
+`/bop setup` runs [`scripts/install.ps1`](scripts/install.ps1) on Windows or
+[`scripts/install.sh`](scripts/install.sh) on macOS and Linux. The script:
 
-1. reads the plugin version (for example `0.1.0`) from `plugin/.claude-plugin/plugin.json`;
+1. reads the plugin version (for example `0.1.0`) from `.claude-plugin/plugin.json`;
 2. downloads `SHA256SUMS` and one file from the release `v<version>`:
    `bop-<version>-windows-x64.exe`, `bop-<version>-macos-arm64`, `bop-<version>-macos-x64` or
    `bop-<version>-linux-x64`;
@@ -91,6 +94,25 @@ shasum -a 256 bop-0.1.0-macos-arm64           # macOS: compare with the line in 
 ```powershell
 Get-FileHash .\bop-0.1.0-windows-x64.exe -Algorithm SHA256   # Windows
 ```
+
+## How the hooks work
+
+[`hooks/hooks.json`](hooks/hooks.json) registers one asynchronous hook for each Claude Code event
+the pet shows (session start and end, prompt, tool use, permission request, notification, stop).
+Each hook runs a short script with two arguments, the app folder and the event name:
+
+- [`hooks/bop-hook.sh`](hooks/bop-hook.sh) on macOS, Linux and Windows with Git Bash;
+- [`hooks/bop-hook.ps1`](hooks/bop-hook.ps1) on Windows without Git Bash, where Claude Code runs
+  hooks with PowerShell.
+
+If the Bop app is installed, the script runs `bop hook <event>`, which reads the event JSON from
+stdin and writes the pet's state to `~/.bop/state.json`. If it is not, the script only reads
+stdin. Either way it prints nothing and exits 0, so it can never block or break Claude Code.
+
+Claude Code runs a hook command with whichever shell is available, so each command in
+`hooks.json` is written to be valid in both: `sh` reads the first two lines and exits, while
+PowerShell skips them as a `<# ... #>` block comment and runs the last line. Each half only
+starts the matching script above.
 
 ## Privacy
 

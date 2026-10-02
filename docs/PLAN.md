@@ -57,7 +57,7 @@ drawing engine). Research: [research/](research/) (1 directory and brand, 2 tech
 - [x] Rename: `claude-pet` → `bop` (exe, `~/.claude-pet` → `~/.bop`, code and docs)
 - [x] Hooks: shell form, a single command readable by both sh and PowerShell; if the exe is missing,
       stdin is drained and it exits with 0 (`research/4-cross-platform.md`). The `.cmd` wrapper is removed.
-- [x] `plugin/.claude-plugin/plugin.json` (`name: bop`, `displayName`, MIT) + `plugin/hooks/hooks.json` (29)
+- [x] `.claude-plugin/plugin.json` (`name: bop`, `displayName`, MIT) + `hooks/hooks.json` (29, 36)
 - [x] `/bop` skill (toggle, `list`, `use <id>`, `install <local-folder>`) + exe subcommands
 - [x] Active pet selection decision (28)
 - [x] `~/.bop/pets/` + `config.json`, embedded Pitir fallback, live pet switching, exe subcommands

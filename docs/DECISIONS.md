@@ -4,6 +4,28 @@ Newest decision on top. Format: date, decision, reason, source.
 
 ## 2026-10-02
 
+36. **The plugin is the repository root; hooks call two readable scripts** (changes 29). Source:
+    Alperen ("A, make it readable"), after checking the repository against the directory's
+    pre-submission checklist (claude.com/docs/plugins/pre-submission-checklist).
+    - Why: for a plugin in a subfolder, a hook command may only use `${CLAUDE_PLUGIN_ROOT}` paths,
+      with no other variable or command substitution (**Blocks**), and any non-shell program a
+      hook runs is held. The checklist recommends keeping the plugin at the root of its own
+      repository. At the root the app's Rust source is also inside the scanned folder.
+    - Layout: `.claude-plugin/plugin.json` + `marketplace.json` (`source: "./"`), `hooks/`,
+      `skills/`, `scripts/`, `assets/icon.png`. `plugin/README.md` merged into `README.md` (the
+      listing text). `CLAUDE.md` moved to `.claude/CLAUDE.md` (a root CLAUDE.md is a
+      `validate --strict` warning). The whole repository (~2.5 MB) is now copied into the plugin
+      cache; accepted.
+    - Hooks: logic in `hooks/bop-hook.sh` and `hooks/bop-hook.ps1` (args: app folder, event).
+      `hooks.json` keeps a 4-line sh/PowerShell command that only starts the matching script;
+      paths come from `${CLAUDE_PLUGIN_ROOT}` / `${CLAUDE_PLUGIN_DATA}` placeholders. PowerShell
+      starts the script with `-NoProfile -ExecutionPolicy Bypass -File` (the documented pattern).
+      The repo's dev hooks in `.claude/settings.json` use the same scripts with the debug exe.
+    - README: Markdown image syntax (HTML `<img>` to a bundled image is held), a "How the hooks
+      work" section, and a note that the plugin does nothing in claude.ai chat and Cowork.
+    - Tested: bash and PowerShell, with and without the app (writes the state / exits 0 silently).
+    - Expected reviewer holds that stay: `app/src-tauri/icons/icon.ico` (binary other than an
+      image; Tauri needs it), the downloaded executable, possibly the short name `bop`.
 35. **Everything in the repository is in English** (changes 21: internal docs were Turkish).
     Conversation with Alperen stays Turkish. Source: Alperen (2026-10-02).
     - Docs renamed: `PROJE.md` → `PROJECT.md`, `docs/DURUM.md` → `docs/STATUS.md`,
@@ -73,7 +95,7 @@ Newest decision on top. Format: date, decision, reason, source.
       In a real `claude -p` test ("A small sleepy blue ghost") the flow finished without a
       permission denial: spec, hatch, QA, install.
 
-29. **Hooks are shell form, a single "polyglot" command; plugin in the `plugin/` folder** (changes
+29. **(Changed by 36: plugin at the root, hooks call scripts.)** **Hooks are shell form, a single "polyglot" command; plugin in the `plugin/` folder** (changes
     decisions 15 and 17). Source: Alperen ("go on"), research `docs/research/4-cross-platform.md`.
     - The command is given without `args`: on macOS/Linux `sh -c`, on Windows Git Bash, or
       PowerShell if Git is missing, runs it. The first half of the same text is sh, the second half

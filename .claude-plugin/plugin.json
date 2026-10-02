@@ -16,7 +16,7 @@
     "desktop",
     "companion"
   ],
-  "icon": "./icon.png",
+  "icon": "./assets/icon.png",
   "documentationUrl": "https://github.com/AlperenGonuk/bop#readme",
   "supportUrl": "https://github.com/AlperenGonuk/bop/issues",
   "privacyPolicyUrl": "https://github.com/AlperenGonuk/bop/blob/main/PRIVACY.md",

@@ -27,9 +27,9 @@ const USAGE: &str = "usage:
 /// The skill's references are embedded in the exe: Claude reads them with the one command the
 /// skill allows (`bop hatch --docs`), without asking to read the plugin folder. Source: the plugin's files.
 const DOCS: &[(&str, &str)] = &[
-    ("spec-format", include_str!("../../../../plugin/skills/hatch/references/spec-format.md")),
-    ("qa-rubric", include_str!("../../../../plugin/skills/hatch/references/qa-rubric.md")),
-    ("animation-rows", include_str!("../../../../plugin/skills/hatch/references/animation-rows.md")),
+    ("spec-format", include_str!("../../../../skills/hatch/references/spec-format.md")),
+    ("qa-rubric", include_str!("../../../../skills/hatch/references/qa-rubric.md")),
+    ("animation-rows", include_str!("../../../../skills/hatch/references/animation-rows.md")),
 ];
 
 /// Drawing result: atlas, logical frames and issues (tests read the frames).

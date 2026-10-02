@@ -7,7 +7,7 @@
             "type": "command",
             "async": true,
             "timeout": 5,
-            "command": "echo `# <#` >/dev/null\nd=\"$CLAUDE_PROJECT_DIR/app/src-tauri/target/debug\"; for e in \"$d/bop\" \"$d/bop.exe\"; do if [ -n \"$CLAUDE_PROJECT_DIR\" ] && [ -f \"$e\" ] && [ -x \"$e\" ]; then \"$e\" hook SessionStart >/dev/null 2>&1; exit 0; fi; done; cat >/dev/null 2>&1; exit 0\n#> > $null\n$e = \"$env:CLAUDE_PROJECT_DIR/app/src-tauri/target/debug/bop.exe\"; if ($env:CLAUDE_PROJECT_DIR -and (Test-Path -LiteralPath $e -PathType Leaf)) { & $e hook SessionStart *> $null } else { $null = [Console]::In.ReadToEnd() }; exit 0"
+            "command": "echo `# <#` >/dev/null\nsh \"$CLAUDE_PROJECT_DIR/hooks/bop-hook.sh\" \"$CLAUDE_PROJECT_DIR/app/src-tauri/target/debug\" SessionStart; exit 0\n#> > $null\npowershell -NoProfile -ExecutionPolicy Bypass -File \"$env:CLAUDE_PROJECT_DIR/hooks/bop-hook.ps1\" \"$env:CLAUDE_PROJECT_DIR/app/src-tauri/target/debug\" SessionStart; exit 0"
           }
         ]
       }
@@ -19,7 +19,7 @@
             "type": "command",
             "async": true,
             "timeout": 5,
-            "command": "echo `# <#` >/dev/null\nd=\"$CLAUDE_PROJECT_DIR/app/src-tauri/target/debug\"; for e in \"$d/bop\" \"$d/bop.exe\"; do if [ -n \"$CLAUDE_PROJECT_DIR\" ] && [ -f \"$e\" ] && [ -x \"$e\" ]; then \"$e\" hook UserPromptSubmit >/dev/null 2>&1; exit 0; fi; done; cat >/dev/null 2>&1; exit 0\n#> > $null\n$e = \"$env:CLAUDE_PROJECT_DIR/app/src-tauri/target/debug/bop.exe\"; if ($env:CLAUDE_PROJECT_DIR -and (Test-Path -LiteralPath $e -PathType Leaf)) { & $e hook UserPromptSubmit *> $null } else { $null = [Console]::In.ReadToEnd() }; exit 0"
+            "command": "echo `# <#` >/dev/null\nsh \"$CLAUDE_PROJECT_DIR/hooks/bop-hook.sh\" \"$CLAUDE_PROJECT_DIR/app/src-tauri/target/debug\" UserPromptSubmit; exit 0\n#> > $null\npowershell -NoProfile -ExecutionPolicy Bypass -File \"$env:CLAUDE_PROJECT_DIR/hooks/bop-hook.ps1\" \"$env:CLAUDE_PROJECT_DIR/app/src-tauri/target/debug\" UserPromptSubmit; exit 0"
           }
         ]
       }
@@ -31,7 +31,7 @@
             "type": "command",
             "async": true,
             "timeout": 5,
-            "command": "echo `# <#` >/dev/null\nd=\"$CLAUDE_PROJECT_DIR/app/src-tauri/target/debug\"; for e in \"$d/bop\" \"$d/bop.exe\"; do if [ -n \"$CLAUDE_PROJECT_DIR\" ] && [ -f \"$e\" ] && [ -x \"$e\" ]; then \"$e\" hook PreToolUse >/dev/null 2>&1; exit 0; fi; done; cat >/dev/null 2>&1; exit 0\n#> > $null\n$e = \"$env:CLAUDE_PROJECT_DIR/app/src-tauri/target/debug/bop.exe\"; if ($env:CLAUDE_PROJECT_DIR -and (Test-Path -LiteralPath $e -PathType Leaf)) { & $e hook PreToolUse *> $null } else { $null = [Console]::In.ReadToEnd() }; exit 0"
+            "command": "echo `# <#` >/dev/null\nsh \"$CLAUDE_PROJECT_DIR/hooks/bop-hook.sh\" \"$CLAUDE_PROJECT_DIR/app/src-tauri/target/debug\" PreToolUse; exit 0\n#> > $null\npowershell -NoProfile -ExecutionPolicy Bypass -File \"$env:CLAUDE_PROJECT_DIR/hooks/bop-hook.ps1\" \"$env:CLAUDE_PROJECT_DIR/app/src-tauri/target/debug\" PreToolUse; exit 0"
           }
         ]
       }
@@ -43,7 +43,7 @@
             "type": "command",
             "async": true,
             "timeout": 5,
-            "command": "echo `# <#` >/dev/null\nd=\"$CLAUDE_PROJECT_DIR/app/src-tauri/target/debug\"; for e in \"$d/bop\" \"$d/bop.exe\"; do if [ -n \"$CLAUDE_PROJECT_DIR\" ] && [ -f \"$e\" ] && [ -x \"$e\" ]; then \"$e\" hook PostToolUse >/dev/null 2>&1; exit 0; fi; done; cat >/dev/null 2>&1; exit 0\n#> > $null\n$e = \"$env:CLAUDE_PROJECT_DIR/app/src-tauri/target/debug/bop.exe\"; if ($env:CLAUDE_PROJECT_DIR -and (Test-Path -LiteralPath $e -PathType Leaf)) { & $e hook PostToolUse *> $null } else { $null = [Console]::In.ReadToEnd() }; exit 0"
+            "command": "echo `# <#` >/dev/null\nsh \"$CLAUDE_PROJECT_DIR/hooks/bop-hook.sh\" \"$CLAUDE_PROJECT_DIR/app/src-tauri/target/debug\" PostToolUse; exit 0\n#> > $null\npowershell -NoProfile -ExecutionPolicy Bypass -File \"$env:CLAUDE_PROJECT_DIR/hooks/bop-hook.ps1\" \"$env:CLAUDE_PROJECT_DIR/app/src-tauri/target/debug\" PostToolUse; exit 0"
           }
         ]
       }
@@ -55,7 +55,7 @@
             "type": "command",
             "async": true,
             "timeout": 5,
-            "command": "echo `# <#` >/dev/null\nd=\"$CLAUDE_PROJECT_DIR/app/src-tauri/target/debug\"; for e in \"$d/bop\" \"$d/bop.exe\"; do if [ -n \"$CLAUDE_PROJECT_DIR\" ] && [ -f \"$e\" ] && [ -x \"$e\" ]; then \"$e\" hook PostToolUseFailure >/dev/null 2>&1; exit 0; fi; done; cat >/dev/null 2>&1; exit 0\n#> > $null\n$e = \"$env:CLAUDE_PROJECT_DIR/app/src-tauri/target/debug/bop.exe\"; if ($env:CLAUDE_PROJECT_DIR -and (Test-Path -LiteralPath $e -PathType Leaf)) { & $e hook PostToolUseFailure *> $null } else { $null = [Console]::In.ReadToEnd() }; exit 0"
+            "command": "echo `# <#` >/dev/null\nsh \"$CLAUDE_PROJECT_DIR/hooks/bop-hook.sh\" \"$CLAUDE_PROJECT_DIR/app/src-tauri/target/debug\" PostToolUseFailure; exit 0\n#> > $null\npowershell -NoProfile -ExecutionPolicy Bypass -File \"$env:CLAUDE_PROJECT_DIR/hooks/bop-hook.ps1\" \"$env:CLAUDE_PROJECT_DIR/app/src-tauri/target/debug\" PostToolUseFailure; exit 0"
           }
         ]
       }
@@ -67,7 +67,7 @@
             "type": "command",
             "async": true,
             "timeout": 5,
-            "command": "echo `# <#` >/dev/null\nd=\"$CLAUDE_PROJECT_DIR/app/src-tauri/target/debug\"; for e in \"$d/bop\" \"$d/bop.exe\"; do if [ -n \"$CLAUDE_PROJECT_DIR\" ] && [ -f \"$e\" ] && [ -x \"$e\" ]; then \"$e\" hook PermissionRequest >/dev/null 2>&1; exit 0; fi; done; cat >/dev/null 2>&1; exit 0\n#> > $null\n$e = \"$env:CLAUDE_PROJECT_DIR/app/src-tauri/target/debug/bop.exe\"; if ($env:CLAUDE_PROJECT_DIR -and (Test-Path -LiteralPath $e -PathType Leaf)) { & $e hook PermissionRequest *> $null } else { $null = [Console]::In.ReadToEnd() }; exit 0"
+            "command": "echo `# <#` >/dev/null\nsh \"$CLAUDE_PROJECT_DIR/hooks/bop-hook.sh\" \"$CLAUDE_PROJECT_DIR/app/src-tauri/target/debug\" PermissionRequest; exit 0\n#> > $null\npowershell -NoProfile -ExecutionPolicy Bypass -File \"$env:CLAUDE_PROJECT_DIR/hooks/bop-hook.ps1\" \"$env:CLAUDE_PROJECT_DIR/app/src-tauri/target/debug\" PermissionRequest; exit 0"
           }
         ]
       }
@@ -79,7 +79,7 @@
             "type": "command",
             "async": true,
             "timeout": 5,
-            "command": "echo `# <#` >/dev/null\nd=\"$CLAUDE_PROJECT_DIR/app/src-tauri/target/debug\"; for e in \"$d/bop\" \"$d/bop.exe\"; do if [ -n \"$CLAUDE_PROJECT_DIR\" ] && [ -f \"$e\" ] && [ -x \"$e\" ]; then \"$e\" hook Notification >/dev/null 2>&1; exit 0; fi; done; cat >/dev/null 2>&1; exit 0\n#> > $null\n$e = \"$env:CLAUDE_PROJECT_DIR/app/src-tauri/target/debug/bop.exe\"; if ($env:CLAUDE_PROJECT_DIR -and (Test-Path -LiteralPath $e -PathType Leaf)) { & $e hook Notification *> $null } else { $null = [Console]::In.ReadToEnd() }; exit 0"
+            "command": "echo `# <#` >/dev/null\nsh \"$CLAUDE_PROJECT_DIR/hooks/bop-hook.sh\" \"$CLAUDE_PROJECT_DIR/app/src-tauri/target/debug\" Notification; exit 0\n#> > $null\npowershell -NoProfile -ExecutionPolicy Bypass -File \"$env:CLAUDE_PROJECT_DIR/hooks/bop-hook.ps1\" \"$env:CLAUDE_PROJECT_DIR/app/src-tauri/target/debug\" Notification; exit 0"
           }
         ]
       }
@@ -91,7 +91,7 @@
             "type": "command",
             "async": true,
             "timeout": 5,
-            "command": "echo `# <#` >/dev/null\nd=\"$CLAUDE_PROJECT_DIR/app/src-tauri/target/debug\"; for e in \"$d/bop\" \"$d/bop.exe\"; do if [ -n \"$CLAUDE_PROJECT_DIR\" ] && [ -f \"$e\" ] && [ -x \"$e\" ]; then \"$e\" hook Stop >/dev/null 2>&1; exit 0; fi; done; cat >/dev/null 2>&1; exit 0\n#> > $null\n$e = \"$env:CLAUDE_PROJECT_DIR/app/src-tauri/target/debug/bop.exe\"; if ($env:CLAUDE_PROJECT_DIR -and (Test-Path -LiteralPath $e -PathType Leaf)) { & $e hook Stop *> $null } else { $null = [Console]::In.ReadToEnd() }; exit 0"
+            "command": "echo `# <#` >/dev/null\nsh \"$CLAUDE_PROJECT_DIR/hooks/bop-hook.sh\" \"$CLAUDE_PROJECT_DIR/app/src-tauri/target/debug\" Stop; exit 0\n#> > $null\npowershell -NoProfile -ExecutionPolicy Bypass -File \"$env:CLAUDE_PROJECT_DIR/hooks/bop-hook.ps1\" \"$env:CLAUDE_PROJECT_DIR/app/src-tauri/target/debug\" Stop; exit 0"
           }
         ]
       }
@@ -103,7 +103,7 @@
             "type": "command",
             "async": true,
             "timeout": 5,
-            "command": "echo `# <#` >/dev/null\nd=\"$CLAUDE_PROJECT_DIR/app/src-tauri/target/debug\"; for e in \"$d/bop\" \"$d/bop.exe\"; do if [ -n \"$CLAUDE_PROJECT_DIR\" ] && [ -f \"$e\" ] && [ -x \"$e\" ]; then \"$e\" hook StopFailure >/dev/null 2>&1; exit 0; fi; done; cat >/dev/null 2>&1; exit 0\n#> > $null\n$e = \"$env:CLAUDE_PROJECT_DIR/app/src-tauri/target/debug/bop.exe\"; if ($env:CLAUDE_PROJECT_DIR -and (Test-Path -LiteralPath $e -PathType Leaf)) { & $e hook StopFailure *> $null } else { $null = [Console]::In.ReadToEnd() }; exit 0"
+            "command": "echo `# <#` >/dev/null\nsh \"$CLAUDE_PROJECT_DIR/hooks/bop-hook.sh\" \"$CLAUDE_PROJECT_DIR/app/src-tauri/target/debug\" StopFailure; exit 0\n#> > $null\npowershell -NoProfile -ExecutionPolicy Bypass -File \"$env:CLAUDE_PROJECT_DIR/hooks/bop-hook.ps1\" \"$env:CLAUDE_PROJECT_DIR/app/src-tauri/target/debug\" StopFailure; exit 0"
           }
         ]
       }
@@ -115,7 +115,7 @@
             "type": "command",
             "async": true,
             "timeout": 5,
-            "command": "echo `# <#` >/dev/null\nd=\"$CLAUDE_PROJECT_DIR/app/src-tauri/target/debug\"; for e in \"$d/bop\" \"$d/bop.exe\"; do if [ -n \"$CLAUDE_PROJECT_DIR\" ] && [ -f \"$e\" ] && [ -x \"$e\" ]; then \"$e\" hook SessionEnd >/dev/null 2>&1; exit 0; fi; done; cat >/dev/null 2>&1; exit 0\n#> > $null\n$e = \"$env:CLAUDE_PROJECT_DIR/app/src-tauri/target/debug/bop.exe\"; if ($env:CLAUDE_PROJECT_DIR -and (Test-Path -LiteralPath $e -PathType Leaf)) { & $e hook SessionEnd *> $null } else { $null = [Console]::In.ReadToEnd() }; exit 0"
+            "command": "echo `# <#` >/dev/null\nsh \"$CLAUDE_PROJECT_DIR/hooks/bop-hook.sh\" \"$CLAUDE_PROJECT_DIR/app/src-tauri/target/debug\" SessionEnd; exit 0\n#> > $null\npowershell -NoProfile -ExecutionPolicy Bypass -File \"$env:CLAUDE_PROJECT_DIR/hooks/bop-hook.ps1\" \"$env:CLAUDE_PROJECT_DIR/app/src-tauri/target/debug\" SessionEnd; exit 0"
           }
         ]
       }

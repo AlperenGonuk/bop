@@ -1043,10 +1043,10 @@ fn add_accessory(parts: &mut Vec<Value>, kind: &str, on: &str, rx: f64, ry: f64,
 /// Level (a) example specs for `--example`.
 pub fn example(name: &str) -> Option<&'static str> {
     match name {
-        "pitir" => Some(include_str!("../../../../plugin/skills/hatch/examples/pitir.json")),
-        "critter" => Some(include_str!("../../../../plugin/skills/hatch/examples/blue-cat.json")),
-        "floaty" => Some(include_str!("../../../../plugin/skills/hatch/examples/ghost.json")),
-        "custom" => Some(include_str!("../../../../plugin/skills/hatch/examples/custom-parts.json")),
+        "pitir" => Some(include_str!("../../../../skills/hatch/examples/pitir.json")),
+        "critter" => Some(include_str!("../../../../skills/hatch/examples/blue-cat.json")),
+        "floaty" => Some(include_str!("../../../../skills/hatch/examples/ghost.json")),
+        "custom" => Some(include_str!("../../../../skills/hatch/examples/custom-parts.json")),
         _ => None,
     }
 }

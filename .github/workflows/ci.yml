@@ -49,13 +49,17 @@ jobs:
         working-directory: app/src-tauri
         run: cargo test --locked
 
-      - name: Check install script syntax (sh)
-        run: sh -n plugin/scripts/install.sh
+      - name: Check install and hook script syntax (sh)
+        run: |
+          sh -n scripts/install.sh
+          sh -n hooks/bop-hook.sh
 
-      - name: Check install script syntax (PowerShell 5.1)
+      - name: Check install and hook script syntax (PowerShell 5.1)
         if: runner.os == 'Windows'
         shell: powershell
         run: |
-          $errors = $null
-          [void][System.Management.Automation.Language.Parser]::ParseFile("$PWD\plugin\scripts\install.ps1", [ref]$null, [ref]$errors)
-          if ($errors) { $errors; exit 1 }
+          foreach ($file in 'scripts/install.ps1', 'hooks/bop-hook.ps1') {
+            $errors = $null
+            [void][System.Management.Automation.Language.Parser]::ParseFile("$PWD/$file", [ref]$null, [ref]$errors)
+            if ($errors) { $errors; exit 1 }
+          }

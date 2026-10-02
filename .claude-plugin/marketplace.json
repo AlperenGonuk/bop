@@ -7,7 +7,7 @@
   "plugins": [
     {
       "name": "bop",
-      "source": "./plugin",
+      "source": "./",
       "description": "A desktop pet for Claude Code: it shows what Claude is doing and you can chat with it.",
       "category": "productivity"
     }

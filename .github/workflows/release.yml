@@ -1,5 +1,5 @@
 # Builds the Bop app for Windows, macOS and Linux and attaches the raw executables plus
-# SHA256SUMS to a draft GitHub release. plugin/scripts/install.* download exactly these names:
+# SHA256SUMS to a draft GitHub release. scripts/install.* download exactly these names:
 #   bop-<version>-windows-x64.exe, bop-<version>-macos-arm64, bop-<version>-macos-x64,
 #   bop-<version>-linux-x64, SHA256SUMS
 # Tag v<version> must match the version in Cargo.toml, tauri.conf.json and plugin.json.
@@ -31,7 +31,7 @@ jobs:
           set -euo pipefail
           cargo_v=$(sed -n 's/^version = "\(.*\)"/\1/p' app/src-tauri/Cargo.toml | head -n 1)
           tauri_v=$(jq -r .version app/src-tauri/tauri.conf.json)
-          plugin_v=$(jq -r .version plugin/.claude-plugin/plugin.json)
+          plugin_v=$(jq -r .version .claude-plugin/plugin.json)
           echo "Cargo.toml=$cargo_v tauri.conf.json=$tauri_v plugin.json=$plugin_v"
           if [ "$cargo_v" != "$tauri_v" ] || [ "$cargo_v" != "$plugin_v" ]; then
             echo "::error::versions differ"; exit 1

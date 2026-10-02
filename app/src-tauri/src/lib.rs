@@ -53,7 +53,7 @@ pub fn cli_main(args: &[String]) -> Option<i32> {
         return Some(hatch::cli(&args[1..]));
     }
     let result: Result<String, String> = match args.first()?.as_str() {
-        // Install scripts (plugin/scripts/install.*) compare the installed version with the plugin version.
+        // Install scripts (scripts/install.*) compare the installed version with the plugin version.
         "--version" | "version" => Ok(format!("bop {}", env!("CARGO_PKG_VERSION"))),
         "list" => {
             pets::ensure_default_pet();

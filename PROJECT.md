@@ -26,8 +26,8 @@
 ```
 PLUGIN (Claude Code)
   /bop skill ──► bop.exe (toggle, list, use, install)
-  hooks.json (single sh/PowerShell command) ──► bop hook <event> ──► ~/.bop/state.json
-                 (silent exit if no exe)           (atomic write)            │
+  hooks.json ──► hooks/bop-hook.sh|.ps1 ──► bop hook <event> ──► ~/.bop/state.json
+                 (silent exit if no exe)           (atomic write)        │
                                                                              ▼
 APP (Tauri, built by GitHub Actions, downloaded from Releases)
   transparent window ◄── watches state.json ──► state → animation (per pet)
@@ -65,14 +65,14 @@ Pet folder: `~/.bop/pets/<id>/`
 - Development pets (`dev-pets/`) stay local and never enter the repository.
 - "Claude" is a trademark of Anthropic; the README carries a "not official" note.
 - License: code MIT. The default pet Pitir is drawn by code
-  (`plugin/skills/hatch/examples/pitir.json`), same license.
+  (`skills/hatch/examples/pitir.json`), same license.
 
 ## Documentation system
 
 | File | Purpose |
 |---|---|
 | `PROJECT.md` | This file: goals, scope, architecture. Rarely changes. |
-| `CLAUDE.md` | Start-of-session instructions for coding sessions |
+| `.claude/CLAUDE.md` | Start-of-session instructions for coding sessions |
 | `docs/STATUS.md` | Where we are now, next step. **Updated at the end of every session.** |
 | `docs/PLAN.md` | Phases and to-do list |
 | `docs/DECISIONS.md` | Dated decision log |

@@ -9,7 +9,7 @@ Claude in a little terminal-style speech bubble. You can make new pets with Clau
 the same format as Codex pets.
 
 <p align="center">
-  <img src="docs/images/pitir-contact-sheet.png" alt="Every animation frame of Pitir, the default Bop pet" width="560">
+  <img src="docs/images/bop-brand.png" alt="Bop, a desktop pet for Claude Code — Pitir the mandarin mascot at a computer" width="960">
 </p>
 
 The default pet is Pıtır, a small mandarin drawn entirely by Bop's own drawing engine.

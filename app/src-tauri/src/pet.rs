@@ -192,10 +192,13 @@ pub fn parse_pet_json(text: &str) -> Result<PetInfo, String> {
     serde_json::from_str(text).map_err(|e| format!("could not read pet.json: {e}"))
 }
 
-/// Pet dosya yolları pet klasörünün dışına çıkamaz (mutlak yol ya da `..` yok).
+/// Pet dosya yolları pet klasörünün dışına çıkamaz (mutlak yol ya da `..` yok). Ayırıcı her
+/// platformda yalnız `/`: `\` ve `:` reddedilir (Linux'ta `C:\x` tek bir dosya adı sayılırdı, aynı
+/// pet Windows'ta klasör dışına çıkabilirdi).
 fn safe_relative(path: &str) -> Result<&Path, String> {
     let p = Path::new(path);
     let ok = !path.is_empty()
+        && !path.contains(['\\', ':'])
         && p.components().all(|c| matches!(c, Component::Normal(_) | Component::CurDir));
     if ok {
         Ok(p)
@@ -325,6 +328,8 @@ mod tests {
     fn klasor_disina_cikan_yol_reddedilir() {
         assert!(safe_relative("../x.webp").is_err());
         assert!(safe_relative("C:\\x.webp").is_err());
+        assert!(safe_relative("..\\..\\x.webp").is_err());
+        assert!(safe_relative("C:x.webp").is_err());
         assert!(safe_relative("").is_err());
         assert!(safe_relative("alt/s.webp").is_ok());
     }

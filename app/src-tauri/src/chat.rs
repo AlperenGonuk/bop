@@ -430,6 +430,8 @@ fn run_claude(
 }
 
 /// Yalnız http(s) adresleri; boşluk ve kontrol karakteri yok (komut satırına gider).
+/// Bağlantı açma şimdilik yalnız Windows'ta; öbür platformlarda yalnız testler kullanır.
+#[cfg_attr(not(windows), allow(dead_code))]
 pub fn valid_url(url: &str) -> bool {
     (url.starts_with("https://") || url.starts_with("http://"))
         && url.len() <= 2048

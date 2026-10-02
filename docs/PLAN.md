@@ -88,7 +88,7 @@ The prototype (C#) was ported to Rust: `app/src-tauri/src/hatch/`; the prototype
 ## Phase 7: Open-source release and submission
 
 - [x] `LICENSE` (MIT), README (installation, downloads, limit warning, "not official" note)
-- [x] Privacy policy (`PRIVACY.md`) and contact (GitHub Issues); links go into `plugin.json` once the repo is public
+- [x] Privacy policy (`PRIVACY.md`) and contact (GitHub Issues); links in `plugin.json` (2026-10-02)
 - [x] Check that no personal paths or information remain (audit + clean single commit, 34)
 - [ ] Name check (is `bop` taken/generic on the portal)
 - [x] Public GitHub repository (with Alperen's explicit approval) (2026-10-02, `AlperenGonuk/bop`)

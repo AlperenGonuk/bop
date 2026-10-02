@@ -4,8 +4,11 @@
   "version": "0.1.0",
   "description": "A desktop pet for Claude Code: it shows what Claude is doing and you can chat with it.",
   "author": {
-    "name": "Alperen"
+    "name": "Alperen",
+    "url": "https://github.com/AlperenGonuk"
   },
+  "homepage": "https://github.com/AlperenGonuk/bop#readme",
+  "repository": "https://github.com/AlperenGonuk/bop",
   "license": "MIT",
   "keywords": [
     "pet",
@@ -13,6 +16,10 @@
     "desktop",
     "companion"
   ],
+  "icon": "./icon.png",
+  "documentationUrl": "https://github.com/AlperenGonuk/bop#readme",
+  "supportUrl": "https://github.com/AlperenGonuk/bop/issues",
+  "privacyPolicyUrl": "https://github.com/AlperenGonuk/bop/blob/main/PRIVACY.md",
   "metadata": {
     "releaseRepo": "AlperenGonuk/bop"
   }

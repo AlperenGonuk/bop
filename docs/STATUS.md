@@ -29,8 +29,8 @@ Local preparation is done (DECISIONS 33–34). Order:
 
 1. ~~`gh repo create AlperenGonuk/bop --public` and push the clean `main` (needs approval).~~
    Done 2026-10-02.
-2. Add `homepage`, `repository`, privacy and support links to `plugin.json` (once the repo is
-   public; if a URL does not resolve, the plugin does not load).
+2. ~~Add `homepage`, `repository`, privacy and support links to `plugin.json`.~~ Done 2026-10-02
+   (plus `icon`, `documentationUrl`; `validate --strict` passes).
 3. See CI pass; tag `v0.1.0` → Actions draft release → Alperen clicks "Publish".
 4. Real installation: add the marketplace, install `bop@bop`, `/bop setup`, `/bop` (Windows, WSL;
    macOS only via Actions). Data folder `~/.claude/plugins/data/bop-bop/`.

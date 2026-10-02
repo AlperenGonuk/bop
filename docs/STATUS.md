@@ -32,9 +32,12 @@ Local preparation is done (DECISIONS 33–34). Order:
 2. ~~Add `homepage`, `repository`, privacy and support links to `plugin.json`.~~ Done 2026-10-02
    (plus `icon`, `documentationUrl`; `validate --strict` passes).
 3. ~~See CI pass; tag `v0.1.0` → Actions draft release~~ (done 2026-10-02, 4 executables +
-   SHA256SUMS in the draft) → **Alperen clicks "Publish"** on GitHub Releases.
-4. Real installation: add the marketplace, install `bop@bop`, `/bop setup`, `/bop` (Windows, WSL;
-   macOS only via Actions). Data folder `~/.claude/plugins/data/bop-bop/`.
+   SHA256SUMS in the draft) → published by Alperen 2026-10-02.
+4. ~~Real installation on Windows~~ Done 2026-10-02: release `v0.1.0` published,
+   `claude plugin marketplace add AlperenGonuk/bop`, `claude plugin install bop@bop`, install
+   script downloaded and verified the real exe, `/bop` opens the pet (after restarting Claude
+   Code; a running session does not see a newly installed plugin). Not tried: macOS, Linux.
+   Data folder `~/.claude/plugins/data/bop-bop/`.
 5. Before the directory submission: is the name `bop` taken on the portal; claude.ai/directory/manage.
 
 Linux testing (WSL Ubuntu 24.04, WSLg): a clean clone in `~/bop` (updated with `git pull`), Rust at

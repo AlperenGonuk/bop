@@ -9,7 +9,7 @@ hooks, you can chat through it (terminal-style bubble), and a per-pet `bop.json`
 2026-10-02: submission and technical requirements were researched (`docs/research/`), decisions
 21–27: plugin name `bop`, everything in English, first release on Windows + macOS + Linux, exe from
 Releases, a `hatch` skill that draws pets with code (Rust), default pet Pitir. The plugin is under
-`plugin/`: manifest, hooks, `/bop` and `hatch` skills. Phase 6 (drawing pets with code) is done
+the repository root (DECISIONS 36): manifest, hooks, `/bop` and `hatch` skills. Phase 6 (drawing pets with code) is done
 with code and tests, not tried in a real session.
 
 Running by hand (without the plugin):
@@ -38,7 +38,10 @@ Local preparation is done (DECISIONS 33–34). Order:
    script downloaded and verified the real exe, `/bop` opens the pet (after restarting Claude
    Code; a running session does not see a newly installed plugin). Not tried: macOS, Linux.
    Data folder `~/.claude/plugins/data/bop-bop/`.
-5. Before the directory submission: is the name `bop` taken on the portal; claude.ai/directory/manage.
+5. Directory submission (Alperen, claude.ai/directory/manage, paid plan): Submit new → Plugin
+   bundle → repository `AlperenGonuk/bop`, plugin path empty (root) → **Validate**. Expected
+   holds for a reviewer: `icon.ico`, the downloaded executable, maybe the short name `bop`.
+   Fix anything marked Blocking, then submit.
 
 Linux testing (WSL Ubuntu 24.04, WSLg): a clean clone in `~/bop` (updated with `git pull`), Rust at
 user level (rustup), Tauri packages installed from the CI list. CI steps passed by hand:
@@ -73,8 +76,15 @@ Known limits: on macOS/Linux "Open in terminal", "Make a new pet" and source lin
 
 ## Last session
 
+- 2026-10-02 (12): Checked the repository against the directory's pre-submission checklist:
+  hook commands in a plugin subfolder were **Blocking**. Plugin moved to the repository root,
+  hook logic moved to `hooks/bop-hook.sh` / `.ps1` (DECISIONS 36). README: Markdown image, "How
+  the hooks work", Claude Code only note. Tested: both scripts in bash and PowerShell with and
+  without the app; `validate --strict` (plugin + marketplace); tests 42/42; install from a clean
+  clone as a marketplace and a real `claude -p` session wrote `SessionEnd` to the state file.
+  Version stays 0.1.0 (the app did not change; the v0.1.0 release still matches).
 - 2026-10-02 (11): English translation committed (tests 42/42), `plugin.json` got `homepage`,
-  `repository`, `author.url`, `icon` (`plugin/icon.png`), `documentationUrl`, `supportUrl`,
+  `repository`, `author.url`, `icon` (now `assets/icon.png`), `documentationUrl`, `supportUrl`,
   `privacyPolicyUrl` (`validate --strict` passes, links resolve). CI green, tag `v0.1.0` pushed,
   release workflow built all 4 platforms and made the draft release. WSL Ubuntu was removed from
   this PC, so the WSL notes above are history.

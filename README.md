@@ -134,7 +134,10 @@ that folder to remove them. Uninstalling the plugin does not remove it.
 
 ## Platform notes
 
-- **Windows 10 (1809+) and 11:** x64; also runs on Windows on ARM through emulation.
+- **Windows 10 (1809+) and 11:** x64; also runs on Windows on ARM through emulation. The app is
+  not code-signed yet, so the first time you open the downloaded file, Microsoft Defender
+  SmartScreen may say "Windows protected your PC". Choose **More info**, then **Run anyway**.
+  This happens only once: the plugin then runs the copy in `~/.bop/bin/`.
 - **macOS (Apple silicon and Intel):** the app is not signed or notarized. A file downloaded
   with a browser is quarantined and macOS blocks it. Before opening it, run
   `xattr -d com.apple.quarantine bop-<version>-macos-arm64` and `chmod +x` on the file.

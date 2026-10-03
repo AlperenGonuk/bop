@@ -4,6 +4,7 @@ mod pet;
 mod pets;
 mod state;
 
+pub use pets::{install_self, spawn_pet, Install};
 pub use state::hook_main;
 
 use pet::{Pet, PetInfo};
@@ -53,7 +54,6 @@ pub fn cli_main(args: &[String]) -> Option<i32> {
         return Some(hatch::cli(&args[1..]));
     }
     let result: Result<String, String> = match args.first()?.as_str() {
-        // Install scripts (scripts/install.*) compare the installed version with the plugin version.
         "--version" | "version" => Ok(format!("bop {}", env!("CARGO_PKG_VERSION"))),
         "list" => {
             pets::ensure_default_pet();
@@ -256,6 +256,22 @@ fn user_home() -> Option<String> {
     chat::user_home()
 }
 
+/// Why the app could not copy itself to `~/.bop/bin` (decision 37). Shown in the pet window,
+/// because the console of a double-clicked exe closes before anyone can read it.
+static INSTALL_NOTICE: Mutex<Option<String>> = Mutex::new(None);
+
+pub fn set_install_notice(message: String) {
+    eprintln!("bop: {message}");
+    if let Ok(mut n) = INSTALL_NOTICE.lock() {
+        *n = Some(message);
+    }
+}
+
+#[tauri::command]
+fn install_notice() -> Option<String> {
+    INSTALL_NOTICE.lock().ok()?.take()
+}
+
 #[tauri::command]
 fn open_url(url: String) -> Result<(), String> {
     chat::open_url(&url)
@@ -398,6 +414,7 @@ pub fn run() {
             chat_open_terminal,
             chat_trust,
             user_home,
+            install_notice,
             open_url,
             cursor_info,
             save_position

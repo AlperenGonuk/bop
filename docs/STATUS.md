@@ -1,6 +1,6 @@
 # Status
 
-**Updated:** 2026-10-02
+**Updated:** 2026-10-03
 
 ## Now
 
@@ -41,11 +41,15 @@ Local preparation is done (DECISIONS 33–34). Order:
 5. ~~Directory submission~~ Submitted 2026-10-02 (claude.ai/directory/manage, repository
    `AlperenGonuk/bop`, root, branch `main`). Auto-publish **off**: every passing version waits
    for Alperen to press **Publish**. GitHub push webhook added (green ping).
-6. **Waiting for review.** Follow it under **Submissions** in the portal; the scan reads the
-   newest commit on `main`. Expected reviewer questions: the downloaded executable, `icon.ico`,
-   "uses a credential" (the app only removes inherited `CLAUDE_CODE_*` variables), and the name
-   `bop` being close to the connector "bocp" (if the reviewer asks for a rename, use
-   `displayName`/`renames`, see the publish docs).
+6. ~~Waiting for review.~~ 2026-10-03: the reviewer asked for changes (the plugin downloaded
+   and ran an exe). Fixed locally (DECISIONS 37): the user installs the app; it copies itself
+   to `~/.bop/bin/`. ~~(a) version 0.2.0 + commit + push~~ done 2026-10-03; **next:**
+   (b) tag `v0.2.0`, check the draft release, Alperen publishes it (the v0.1.0 exe cannot copy
+   itself, so README's "latest release" must be 0.2.0 before review); (c) a real install test
+   (download → open once → `/bop`); (d) **Resubmit for review** in the portal.
+   Not changed on purpose: images mentioned in backticks (held, nothing runs them), `icon.ico`
+   (Tauri needs it; could be generated in CI later), the credential note (the app only removes
+   inherited `CLAUDE_CODE_*` variables; now explained in the README).
 7. Alperen: enable GitHub 2FA before 2026-10-29, otherwise pushes and releases are restricted.
 
 Linux testing (WSL Ubuntu 24.04, WSLg): a clean clone in `~/bop` (updated with `git pull`), Rust at
@@ -80,6 +84,24 @@ Known limits: on macOS/Linux "Open in terminal", "Make a new pet" and source lin
 - Do pet images need a separate license (Pitir is ours; DECISIONS 9, 10, 25).
 
 ## Last session
+
+- 2026-10-03 (14): Directory review: "Needs changes", the plugin must not download and run a
+  program. Implemented DECISIONS 37: app self-copy to `~/.bop/bin/` (`pets::install_self`, test
+  `install_exe_copies_once`), `scripts/bop.sh` / `.ps1` wrappers, hooks without the data-folder
+  argument, both skills rewritten (`/bop setup` explains, runs nothing), README/PRIVACY/CI
+  updated, install scripts removed. Tested on Windows with a temporary `BOP_HOME`: tests 43/43,
+  release exe copies itself and opens the pet, wrappers (bash + PowerShell) with and without
+  the app (exit 127 message), both hooks write `state.json`, a newer download closes the running
+  pet and replaces it, `validate --strict` passes. Not tested: macOS, Linux, a real `/bop` in a
+  Claude session with the installed plugin. Then `/code-review` (10 findings) fixed: the pet
+  now runs from `~/.bop/bin` after the copy (download deletable, updates visible), no downgrade
+  (version check), size check before reading, leftover quit request cleared, install error shown
+  in the pet window, `toggle` children skip the copy, `USERPROFILE` in the sh scripts, README
+  control character. Re-tested all flows (tests 44/44). Second `/code-review medium`: 3 of 4
+  fixed (a replaced exe always closes the running pet, so macOS/Linux and pets started from
+  elsewhere update too; only a failed replace closes the pet for a retry; the install notice
+  no longer hides a load error). Tests 45/45; update flows re-tested on Windows. Not fixed: no migration for v0.1.0
+  installs (few users; say "download the app again" in the release notes). Version 0.2.0, committed and pushed.
 
 - 2026-10-02 (13): Portal **Validate** passed with no Blocking findings. Policy holds: broad
   `allowed-tools` (fixed: each skill now pre-approves only the app subcommands and install

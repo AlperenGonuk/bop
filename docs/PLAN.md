@@ -66,6 +66,8 @@ drawing engine). Research: [research/](research/) (1 directory and brand, 2 tech
 - [x] Right-click: "Make a new pet" (first message in the terminal is "Let's make a new Bop pet!"; skill in Phase 6)
 - [x] Test with `claude --plugin-dir`, `claude plugin validate --strict` (`/bop`, `hatch` flow with `-p`)
 - [x] Exe download: GitHub Releases + sha256, stated clearly in the README (`/bop setup`, 33; not tested with a real release)
+- [x] Directory review fix: no download; the app copies itself to `~/.bop/bin/` on first open (37)
+- [ ] Release v0.2.0 with the self-copying app, then resubmit to the directory
 - [ ] Platform differences: "Open in terminal" (macOS/Linux), Tauri 2.12.1+ (macOS transparency),
       graceful fallback for Wayland limits (always on top, position, mouse position)
 - [x] GitHub Actions: Windows, macOS, Linux builds → Releases (written, never run)

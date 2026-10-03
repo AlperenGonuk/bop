@@ -225,11 +225,164 @@ pub fn take_quit_request() -> bool {
     asked
 }
 
-/// Starts the pet as a separate process (this process can exit without waiting).
-pub fn spawn_detached() -> Result<(), String> {
+/// Where the plugin's scripts look for the app: `~/.bop/bin/bop` (`bop.exe` on Windows).
+pub fn app_path() -> Option<PathBuf> {
+    let name = if cfg!(windows) { "bop.exe" } else { "bop" };
+    state::home_dir().map(|h| h.join("bin").join(name))
+}
+
+/// Argument `spawn_detached` passes to the pet it starts, so that pet does not try to install
+/// itself again (only an exe opened without any argument does).
+pub const NO_INSTALL_ARG: &str = "--no-install";
+
+/// Result of putting the running exe in place.
+#[derive(Debug, PartialEq)]
+pub enum Install {
+    /// This process already runs from `app_path()`.
+    Here,
+    /// `app_path()` already held an identical copy.
+    Current(PathBuf),
+    /// This exe was copied to `app_path()`.
+    Updated(PathBuf),
+    /// `app_path()` holds a newer version; it was left alone.
+    NewerKept(PathBuf),
+}
+
+/// Why `install_exe` failed.
+#[derive(Debug, PartialEq)]
+enum CopyError {
+    /// The last step, replacing the target, failed: on Windows a running pet locks it.
+    Replace(String),
+    /// Anything before that (folder, reading, writing the new copy).
+    Other(String),
+}
+
+impl From<CopyError> for String {
+    fn from(e: CopyError) -> String {
+        match e {
+            CopyError::Replace(m) | CopyError::Other(m) => m,
+        }
+    }
+}
+
+/// Copies the running exe to `app_path()` so the plugin can find it (DECISIONS.md, decision 37).
+/// Called when the app is opened without arguments, e.g. double-clicked after downloading it;
+/// the caller then starts the installed copy, so the downloaded file is not kept open.
+/// A running pet is closed when the app changed, so the new version is the one that shows.
+pub fn install_self() -> Result<Install, String> {
+    let target = app_path().ok_or("home folder not found")?;
     let exe = std::env::current_exe().map_err(|e| e.to_string())?;
+    let ours = env!("CARGO_PKG_VERSION");
+    match install_exe(&exe, &target, || is_newer(installed_version(&target).as_deref(), ours)) {
+        Ok(Install::Updated(p)) => {
+            // macOS and Linux replace a running exe without error; the old pet must still go.
+            close_running_pet();
+            Ok(Install::Updated(p))
+        }
+        // On Windows a running pet keeps the old exe locked: close it, then try once more.
+        Err(CopyError::Replace(_)) if other_instance_running() => {
+            close_running_pet();
+            Ok(install_exe(&exe, &target, || false)?)
+        }
+        other => Ok(other?),
+    }
+}
+
+/// Asks a running pet to quit and waits until it is gone (at most ~5.5 s).
+fn close_running_pet() {
+    if !other_instance_running() || request_quit().is_err() {
+        return;
+    }
+    for _ in 0..25 {
+        if !other_instance_running() {
+            break;
+        }
+        std::thread::sleep(Duration::from_millis(200));
+    }
+    // The process may hold the file for a moment after its last heartbeat.
+    std::thread::sleep(Duration::from_millis(500));
+    // If the pet had already died, nobody read the request; the pet started next must not see it.
+    take_quit_request();
+}
+
+/// Copies `exe` to `target` unless it is the same file, an identical copy is already there, or
+/// `newer_installed` says the target is a newer version. The copy is written next to the target
+/// and renamed over it in one step.
+fn install_exe(exe: &Path, target: &Path, newer_installed: impl FnOnce() -> bool) -> Result<Install, CopyError> {
+    if let (Ok(a), Ok(b)) = (exe.canonicalize(), target.canonicalize()) {
+        if a == b {
+            return Ok(Install::Here);
+        }
+    }
+    if target.is_file() {
+        if same_content(exe, target) {
+            return Ok(Install::Current(target.to_path_buf()));
+        }
+        if newer_installed() {
+            return Ok(Install::NewerKept(target.to_path_buf()));
+        }
+    }
+    let other = CopyError::Other;
+    let dir = target.parent().ok_or(other("invalid app path".into()))?;
+    fs::create_dir_all(dir).map_err(|e| other(format!("could not create {}: {e}", dir.display())))?;
+    let tmp = target.with_extension("new");
+    fs::copy(exe, &tmp).map_err(|e| other(format!("could not write {}: {e}", tmp.display())))?;
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let _ = fs::set_permissions(&tmp, fs::Permissions::from_mode(0o755));
+    }
+    fs::rename(&tmp, target).map_err(|e| {
+        let _ = fs::remove_file(&tmp);
+        CopyError::Replace(format!(
+            "could not install the app to {} (close the running pet and open this file again): {e}",
+            target.display()
+        ))
+    })?;
+    Ok(Install::Updated(target.to_path_buf()))
+}
+
+/// Compares sizes first, so the ~10 MB files are read only when they may be equal.
+fn same_content(a: &Path, b: &Path) -> bool {
+    match (fs::metadata(a), fs::metadata(b)) {
+        (Ok(ma), Ok(mb)) if ma.len() == mb.len() => matches!((fs::read(a), fs::read(b)), (Ok(x), Ok(y)) if x == y),
+        _ => false,
+    }
+}
+
+/// Version printed by `<exe> --version` ("bop 0.2.0" → "0.2.0").
+fn installed_version(exe: &Path) -> Option<String> {
     let mut cmd = std::process::Command::new(exe);
-    cmd.stdin(std::process::Stdio::null())
+    cmd.arg("--version").stdin(std::process::Stdio::null());
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+        cmd.creation_flags(CREATE_NO_WINDOW);
+    }
+    let out = cmd.output().ok()?;
+    let text = String::from_utf8(out.stdout).ok()?;
+    text.trim().strip_prefix("bop ").map(str::to_string)
+}
+
+/// Whether `installed` is a newer `x.y.z` than `ours`. Unknown or unparsable means "not newer",
+/// so a broken copy is always replaced.
+fn is_newer(installed: Option<&str>, ours: &str) -> bool {
+    fn parse(v: &str) -> Option<Vec<u64>> {
+        let core = v.split(['-', '+']).next()?;
+        core.split('.').map(|p| p.parse().ok()).collect()
+    }
+    match (installed.and_then(parse), parse(ours)) {
+        (Some(a), Some(b)) => a > b,
+        _ => false,
+    }
+}
+
+/// Starts the pet from `exe` as a separate process (this process can exit without waiting).
+pub fn spawn_pet(exe: &Path) -> Result<(), String> {
+    let mut cmd = std::process::Command::new(exe);
+    cmd.arg(NO_INSTALL_ARG)
+        .stdin(std::process::Stdio::null())
         .stdout(std::process::Stdio::null())
         .stderr(std::process::Stdio::null());
     #[cfg(windows)]
@@ -246,6 +399,12 @@ pub fn spawn_detached() -> Result<(), String> {
         cmd.process_group(0);
     }
     cmd.spawn().map(|_| ()).map_err(|e| format!("could not start pet: {e}"))
+}
+
+/// Starts the pet from this exe as a separate process.
+pub fn spawn_detached() -> Result<(), String> {
+    let exe = std::env::current_exe().map_err(|e| e.to_string())?;
+    spawn_pet(&exe)
 }
 
 #[cfg(test)]
@@ -267,6 +426,58 @@ mod tests {
         let c: Config = serde_json::from_str(r#"{"activePet":"johnny","other":1}"#).unwrap();
         assert_eq!(c.active_pet.as_deref(), Some("johnny"));
         assert_eq!(serde_json::to_string(&Config::default()).unwrap(), "{}");
+    }
+
+    #[test]
+    fn install_exe_copies_once() {
+        let dir = std::env::temp_dir().join(format!("bop-install-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&dir);
+        fs::create_dir_all(&dir).unwrap();
+        let exe = dir.join("download.exe");
+        let target = dir.join("bin").join("bop.exe");
+        fs::write(&exe, b"v1").unwrap();
+        assert_eq!(install_exe(&exe, &target, || unreachable!()), Ok(Install::Updated(target.clone())));
+        assert_eq!(fs::read(&target).unwrap(), b"v1");
+        // Identical copy: nothing written, the version is not even asked for.
+        assert_eq!(install_exe(&exe, &target, || unreachable!()), Ok(Install::Current(target.clone())));
+        // Running from the target itself.
+        assert_eq!(install_exe(&target, &target, || unreachable!()), Ok(Install::Here));
+        // A different download replaces the copy unless the installed one is newer.
+        fs::write(&exe, b"v2").unwrap();
+        assert_eq!(install_exe(&exe, &target, || true), Ok(Install::NewerKept(target.clone())));
+        assert_eq!(fs::read(&target).unwrap(), b"v1");
+        assert_eq!(install_exe(&exe, &target, || false), Ok(Install::Updated(target.clone())));
+        assert_eq!(fs::read(&target).unwrap(), b"v2");
+        assert!(!dir.join("bin").join("bop.new").exists());
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn install_exe_tells_replace_errors_apart() {
+        let dir = std::env::temp_dir().join(format!("bop-install-err-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&dir);
+        fs::create_dir_all(&dir).unwrap();
+        let exe = dir.join("download.exe");
+        fs::write(&exe, b"v1").unwrap();
+        // The target cannot be replaced (a folder stands in for a locked exe): retrying may help.
+        let blocked = dir.join("bin").join("bop.exe");
+        fs::create_dir_all(&blocked).unwrap();
+        assert!(matches!(install_exe(&exe, &blocked, || false), Err(CopyError::Replace(_))));
+        // The new copy cannot even be written: closing a pet would not help.
+        let missing = dir.join("missing.exe");
+        let target = dir.join("bin2").join("bop.exe");
+        assert!(matches!(install_exe(&missing, &target, || false), Err(CopyError::Other(_))));
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn newer_version_compares_numbers() {
+        assert!(is_newer(Some("0.10.0"), "0.9.1"));
+        assert!(is_newer(Some("1.0.0"), "0.2.0-beta"));
+        assert!(!is_newer(Some("0.2.0"), "0.2.0"));
+        assert!(!is_newer(Some("0.1.0"), "0.2.0"));
+        assert!(!is_newer(None, "0.2.0"));
+        assert!(!is_newer(Some("garbage"), "0.2.0"));
     }
 
     #[test]

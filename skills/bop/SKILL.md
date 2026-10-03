@@ -1,9 +1,9 @@
 ---
 name: bop
-description: Opens or closes the Bop desktop pet, lists installed pets, switches the active pet, installs a pet from a local folder, or downloads the Bop app itself (setup).
+description: Opens or closes the Bop desktop pet, lists installed pets, switches the active pet, installs a pet from a local folder, or explains how to install the Bop app (setup).
 argument-hint: "[setup | list | use <id> | install <folder> | stop]"
 disable-model-invocation: true
-allowed-tools: Bash("${CLAUDE_PLUGIN_DATA}/bin/bop" toggle), Bash("${CLAUDE_PLUGIN_DATA}/bin/bop.exe" toggle), PowerShell(& "${CLAUDE_PLUGIN_DATA}/bin/bop.exe" toggle), Bash("${CLAUDE_PLUGIN_DATA}/bin/bop" stop), Bash("${CLAUDE_PLUGIN_DATA}/bin/bop.exe" stop), PowerShell(& "${CLAUDE_PLUGIN_DATA}/bin/bop.exe" stop), Bash("${CLAUDE_PLUGIN_DATA}/bin/bop" list), Bash("${CLAUDE_PLUGIN_DATA}/bin/bop.exe" list), PowerShell(& "${CLAUDE_PLUGIN_DATA}/bin/bop.exe" list), Bash("${CLAUDE_PLUGIN_DATA}/bin/bop" use *), Bash("${CLAUDE_PLUGIN_DATA}/bin/bop.exe" use *), PowerShell(& "${CLAUDE_PLUGIN_DATA}/bin/bop.exe" use *), Bash("${CLAUDE_PLUGIN_DATA}/bin/bop" install *), Bash("${CLAUDE_PLUGIN_DATA}/bin/bop.exe" install *), PowerShell(& "${CLAUDE_PLUGIN_DATA}/bin/bop.exe" install *), Bash(powershell -NoProfile -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/scripts/install.ps1" -DataDir "${CLAUDE_PLUGIN_DATA}"), Bash(powershell -NoProfile -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/scripts/install.ps1" -DataDir "${CLAUDE_PLUGIN_DATA}" -Force), PowerShell(powershell -NoProfile -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/scripts/install.ps1" -DataDir "${CLAUDE_PLUGIN_DATA}"), PowerShell(powershell -NoProfile -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/scripts/install.ps1" -DataDir "${CLAUDE_PLUGIN_DATA}" -Force), Bash(sh "${CLAUDE_PLUGIN_ROOT}/scripts/install.sh" "${CLAUDE_PLUGIN_DATA}"), Bash(sh "${CLAUDE_PLUGIN_ROOT}/scripts/install.sh" "${CLAUDE_PLUGIN_DATA}" --force)
+allowed-tools: Bash(sh "${CLAUDE_PLUGIN_ROOT}/scripts/bop.sh" toggle), Bash(sh "${CLAUDE_PLUGIN_ROOT}/scripts/bop.sh" stop), Bash(sh "${CLAUDE_PLUGIN_ROOT}/scripts/bop.sh" list), Bash(sh "${CLAUDE_PLUGIN_ROOT}/scripts/bop.sh" use *), Bash(sh "${CLAUDE_PLUGIN_ROOT}/scripts/bop.sh" install *), PowerShell(powershell -NoProfile -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/scripts/bop.ps1" toggle), PowerShell(powershell -NoProfile -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/scripts/bop.ps1" stop), PowerShell(powershell -NoProfile -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/scripts/bop.ps1" list), PowerShell(powershell -NoProfile -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/scripts/bop.ps1" use *), PowerShell(powershell -NoProfile -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/scripts/bop.ps1" install *)
 ---
 
 # Bop
@@ -13,17 +13,17 @@ request to the Bop app. Do not do anything else, and do not read or change other
 
 ## The app
 
-- Windows: `${CLAUDE_PLUGIN_DATA}/bin/bop.exe`
-- macOS and Linux: `${CLAUDE_PLUGIN_DATA}/bin/bop`
+`<app>` below stands for the plugin's script that runs the Bop app:
 
-Use the one for the current platform. Use the Bash tool when it is available. Always put the
-path in double quotes. In PowerShell,
-start the command with `& ` (for example `& "<path>" list`).
+- Bash tool (macOS, Linux, Windows with Git Bash): `sh "${CLAUDE_PLUGIN_ROOT}/scripts/bop.sh"`
+- PowerShell tool (Windows without Git Bash): `powershell -NoProfile -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/scripts/bop.ps1"`
+
+Use the Bash tool when it is available. Write the prefix exactly as above, then the arguments.
 
 Run the command on its own: no `cd`, no existence check, no pipes or `;`, so it matches the
-permissions this skill grants. If it fails because the file is not found, tell the user in one
-sentence that the Bop app is not installed yet and that `/bop setup` downloads it, then stop.
-Do not try to download, build or find it any other way.
+permissions this skill grants. If the script reports that the Bop app is not installed, show its
+message to the user as it is, then stop. Do not try to download, build or find the app any
+other way.
 
 ## Request
 
@@ -33,12 +33,12 @@ Run exactly one command:
 
 | Request | Command | Meaning |
 | --- | --- | --- |
-| empty | `"<app>" toggle` | open the pet, or close it if it is open |
-| `setup` | see [Setup](#setup) | download and install the Bop app |
-| `stop` | `"<app>" stop` | close the pet |
-| `list` | `"<app>" list` | installed pets; `*` marks the active one |
-| `use <id>` | `"<app>" use <id>` | switch to that pet; an open pet changes at once |
-| `install <folder>` | `"<app>" install "<folder>"` | copy a pet folder (`pet.json` + spritesheet) into Bop |
+| empty | `<app> toggle` | open the pet, or close it if it is open |
+| `setup` | none, see [Setup](#setup) | how to install the Bop app |
+| `stop` | `<app> stop` | close the pet |
+| `list` | `<app> list` | installed pets; `*` marks the active one |
+| `use <id>` | `<app> use <id>` | switch to that pet; an open pet changes at once |
+| `install <folder>` | `<app> install "<folder>"` | copy a pet folder (`pet.json` + spritesheet) into Bop |
 
 Anything else: show the table above as a short usage note and run nothing.
 
@@ -46,17 +46,17 @@ After `install`, offer to switch to the new pet with `use <id>`; run it only if 
 
 ## Setup
 
-`setup` runs the plugin's install script instead of the app. It downloads the Bop app that
-matches this plugin version from the plugin's GitHub release, checks it against the release's
-`SHA256SUMS` file and puts it in the plugin data folder. It skips the download when that version
-is already installed. Run exactly one command, on its own, as written:
+Run nothing. The plugin does not download or install the app. Tell the user, in their language:
 
-- Windows: `powershell -NoProfile -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/scripts/install.ps1" -DataDir "${CLAUDE_PLUGIN_DATA}"`
-- macOS and Linux: `sh "${CLAUDE_PLUGIN_ROOT}/scripts/install.sh" "${CLAUDE_PLUGIN_DATA}"`
+1. Download the file for their platform from https://github.com/AlperenGonuk/bop/releases/latest
+   (Windows: `bop-<version>-windows-x64.exe`; macOS: `macos-arm64` for Apple silicon,
+   `macos-x64` for Intel; Linux: `linux-x64`).
+2. Open it once (double-click, or run it from a terminal). It copies itself to `~/.bop/bin/`,
+   where the plugin finds it, and the pet appears. The downloaded file can then be deleted.
+3. To update, download the new version and open it the same way.
 
-Only if the user typed `setup --force` (reinstall the same version), add ` -Force` (Windows) or
-` --force` (macOS and Linux) at the end. After a successful setup, tell the user that `/bop`
-opens the pet. If it fails, show the error line as it is; do not try another way to get the app.
+macOS may block the unsigned app; the README explains how to allow it. On Linux the file must be
+made executable first (`chmod +x`).
 
 ## Reply
 

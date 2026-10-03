@@ -209,6 +209,30 @@ async function start() {
   } catch (e) {
     showError(String(e?.message ?? e));
   }
+  // Self-install failed (double-clicked download): the pet works, but the plugin can't find it.
+  const notice = await invoke("install_notice").catch(() => null);
+  if (notice) showNotice(notice);
+}
+
+/**
+ * Shows a non-fatal message in the error box; click it to close, it also closes by itself.
+ * If the box already shows an error (the pet failed to load), the message is added below it
+ * and the box stays, so that error is not lost.
+ */
+function showNotice(message) {
+  const box = document.getElementById("error");
+  if (!box.hidden) {
+    log(`error: ${message}`);
+    box.textContent += `\n\n${message}`;
+    return;
+  }
+  showError(message);
+  const hide = () => (box.hidden = true);
+  box.addEventListener("pointerdown", (e) => {
+    e.stopPropagation();
+    hide();
+  }, { once: true });
+  setTimeout(hide, 30000);
 }
 
 start();

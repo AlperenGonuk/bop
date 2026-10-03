@@ -1,5 +1,5 @@
 # Builds the Bop app for Windows, macOS and Linux and attaches the raw executables plus
-# SHA256SUMS to a draft GitHub release. scripts/install.* download exactly these names:
+# SHA256SUMS to a draft GitHub release. The README and /bop setup name these files:
 #   bop-<version>-windows-x64.exe, bop-<version>-macos-arm64, bop-<version>-macos-x64,
 #   bop-<version>-linux-x64, SHA256SUMS
 # Tag v<version> must match the version in Cargo.toml, tauri.conf.json and plugin.json.
@@ -169,4 +169,4 @@ jobs:
           gh release create "$GITHUB_REF_NAME" dist/* \
             --draft --verify-tag \
             --title "Bop $VERSION" \
-            --notes "Executables for the Bop plugin (installed by /bop setup). Check them against SHA256SUMS."
+            --notes "Executables for the Bop plugin (download one and open it once, see the README). Check them against SHA256SUMS."

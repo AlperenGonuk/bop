@@ -15,6 +15,25 @@ fn main() {
     if let Some(code) = bop_lib::cli_main(&args[1..]) {
         std::process::exit(code);
     }
+    // Opened without arguments (double-clicked after downloading): put a copy in ~/.bop/bin,
+    // where the plugin finds it, and run the pet from there so the download is not kept open.
+    // Pets started by `toggle` get `--no-install`; debug builds skip this entirely.
+    if args.len() == 1 && !cfg!(debug_assertions) {
+        match bop_lib::install_self() {
+            Ok(bop_lib::Install::Here) => {}
+            Ok(
+                bop_lib::Install::Current(app)
+                | bop_lib::Install::Updated(app)
+                | bop_lib::Install::NewerKept(app),
+            ) => {
+                match bop_lib::spawn_pet(&app) {
+                    Ok(()) => return,
+                    Err(e) => bop_lib::set_install_notice(e),
+                }
+            }
+            Err(e) => bop_lib::set_install_notice(format!("Bop could not install itself: {e}")),
+        }
+    }
     console::release_own();
     bop_lib::run()
 }

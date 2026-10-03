@@ -7,7 +7,7 @@
             "type": "command",
             "async": true,
             "timeout": 5,
-            "command": "echo `# <#` >/dev/null\nsh \"${CLAUDE_PLUGIN_ROOT}/hooks/bop-hook.sh\" \"${CLAUDE_PLUGIN_DATA}/bin\" SessionStart; exit 0\n#> > $null\npowershell -NoProfile -ExecutionPolicy Bypass -File \"${CLAUDE_PLUGIN_ROOT}/hooks/bop-hook.ps1\" \"${CLAUDE_PLUGIN_DATA}/bin\" SessionStart; exit 0"
+            "command": "echo `# <#` >/dev/null\nsh \"${CLAUDE_PLUGIN_ROOT}/hooks/bop-hook.sh\" SessionStart; exit 0\n#> > $null\npowershell -NoProfile -ExecutionPolicy Bypass -File \"${CLAUDE_PLUGIN_ROOT}/hooks/bop-hook.ps1\" SessionStart; exit 0"
           }
         ]
       }
@@ -19,7 +19,7 @@
             "type": "command",
             "async": true,
             "timeout": 5,
-            "command": "echo `# <#` >/dev/null\nsh \"${CLAUDE_PLUGIN_ROOT}/hooks/bop-hook.sh\" \"${CLAUDE_PLUGIN_DATA}/bin\" UserPromptSubmit; exit 0\n#> > $null\npowershell -NoProfile -ExecutionPolicy Bypass -File \"${CLAUDE_PLUGIN_ROOT}/hooks/bop-hook.ps1\" \"${CLAUDE_PLUGIN_DATA}/bin\" UserPromptSubmit; exit 0"
+            "command": "echo `# <#` >/dev/null\nsh \"${CLAUDE_PLUGIN_ROOT}/hooks/bop-hook.sh\" UserPromptSubmit; exit 0\n#> > $null\npowershell -NoProfile -ExecutionPolicy Bypass -File \"${CLAUDE_PLUGIN_ROOT}/hooks/bop-hook.ps1\" UserPromptSubmit; exit 0"
           }
         ]
       }
@@ -31,7 +31,7 @@
             "type": "command",
             "async": true,
             "timeout": 5,
-            "command": "echo `# <#` >/dev/null\nsh \"${CLAUDE_PLUGIN_ROOT}/hooks/bop-hook.sh\" \"${CLAUDE_PLUGIN_DATA}/bin\" PreToolUse; exit 0\n#> > $null\npowershell -NoProfile -ExecutionPolicy Bypass -File \"${CLAUDE_PLUGIN_ROOT}/hooks/bop-hook.ps1\" \"${CLAUDE_PLUGIN_DATA}/bin\" PreToolUse; exit 0"
+            "command": "echo `# <#` >/dev/null\nsh \"${CLAUDE_PLUGIN_ROOT}/hooks/bop-hook.sh\" PreToolUse; exit 0\n#> > $null\npowershell -NoProfile -ExecutionPolicy Bypass -File \"${CLAUDE_PLUGIN_ROOT}/hooks/bop-hook.ps1\" PreToolUse; exit 0"
           }
         ]
       }
@@ -43,7 +43,7 @@
             "type": "command",
             "async": true,
             "timeout": 5,
-            "command": "echo `# <#` >/dev/null\nsh \"${CLAUDE_PLUGIN_ROOT}/hooks/bop-hook.sh\" \"${CLAUDE_PLUGIN_DATA}/bin\" PostToolUse; exit 0\n#> > $null\npowershell -NoProfile -ExecutionPolicy Bypass -File \"${CLAUDE_PLUGIN_ROOT}/hooks/bop-hook.ps1\" \"${CLAUDE_PLUGIN_DATA}/bin\" PostToolUse; exit 0"
+            "command": "echo `# <#` >/dev/null\nsh \"${CLAUDE_PLUGIN_ROOT}/hooks/bop-hook.sh\" PostToolUse; exit 0\n#> > $null\npowershell -NoProfile -ExecutionPolicy Bypass -File \"${CLAUDE_PLUGIN_ROOT}/hooks/bop-hook.ps1\" PostToolUse; exit 0"
           }
         ]
       }
@@ -55,7 +55,7 @@
             "type": "command",
             "async": true,
             "timeout": 5,
-            "command": "echo `# <#` >/dev/null\nsh \"${CLAUDE_PLUGIN_ROOT}/hooks/bop-hook.sh\" \"${CLAUDE_PLUGIN_DATA}/bin\" PostToolUseFailure; exit 0\n#> > $null\npowershell -NoProfile -ExecutionPolicy Bypass -File \"${CLAUDE_PLUGIN_ROOT}/hooks/bop-hook.ps1\" \"${CLAUDE_PLUGIN_DATA}/bin\" PostToolUseFailure; exit 0"
+            "command": "echo `# <#` >/dev/null\nsh \"${CLAUDE_PLUGIN_ROOT}/hooks/bop-hook.sh\" PostToolUseFailure; exit 0\n#> > $null\npowershell -NoProfile -ExecutionPolicy Bypass -File \"${CLAUDE_PLUGIN_ROOT}/hooks/bop-hook.ps1\" PostToolUseFailure; exit 0"
           }
         ]
       }
@@ -67,7 +67,7 @@
             "type": "command",
             "async": true,
             "timeout": 5,
-            "command": "echo `# <#` >/dev/null\nsh \"${CLAUDE_PLUGIN_ROOT}/hooks/bop-hook.sh\" \"${CLAUDE_PLUGIN_DATA}/bin\" PermissionRequest; exit 0\n#> > $null\npowershell -NoProfile -ExecutionPolicy Bypass -File \"${CLAUDE_PLUGIN_ROOT}/hooks/bop-hook.ps1\" \"${CLAUDE_PLUGIN_DATA}/bin\" PermissionRequest; exit 0"
+            "command": "echo `# <#` >/dev/null\nsh \"${CLAUDE_PLUGIN_ROOT}/hooks/bop-hook.sh\" PermissionRequest; exit 0\n#> > $null\npowershell -NoProfile -ExecutionPolicy Bypass -File \"${CLAUDE_PLUGIN_ROOT}/hooks/bop-hook.ps1\" PermissionRequest; exit 0"
           }
         ]
       }
@@ -79,7 +79,7 @@
             "type": "command",
             "async": true,
             "timeout": 5,
-            "command": "echo `# <#` >/dev/null\nsh \"${CLAUDE_PLUGIN_ROOT}/hooks/bop-hook.sh\" \"${CLAUDE_PLUGIN_DATA}/bin\" Notification; exit 0\n#> > $null\npowershell -NoProfile -ExecutionPolicy Bypass -File \"${CLAUDE_PLUGIN_ROOT}/hooks/bop-hook.ps1\" \"${CLAUDE_PLUGIN_DATA}/bin\" Notification; exit 0"
+            "command": "echo `# <#` >/dev/null\nsh \"${CLAUDE_PLUGIN_ROOT}/hooks/bop-hook.sh\" Notification; exit 0\n#> > $null\npowershell -NoProfile -ExecutionPolicy Bypass -File \"${CLAUDE_PLUGIN_ROOT}/hooks/bop-hook.ps1\" Notification; exit 0"
           }
         ]
       }
@@ -91,7 +91,7 @@
             "type": "command",
             "async": true,
             "timeout": 5,
-            "command": "echo `# <#` >/dev/null\nsh \"${CLAUDE_PLUGIN_ROOT}/hooks/bop-hook.sh\" \"${CLAUDE_PLUGIN_DATA}/bin\" Stop; exit 0\n#> > $null\npowershell -NoProfile -ExecutionPolicy Bypass -File \"${CLAUDE_PLUGIN_ROOT}/hooks/bop-hook.ps1\" \"${CLAUDE_PLUGIN_DATA}/bin\" Stop; exit 0"
+            "command": "echo `# <#` >/dev/null\nsh \"${CLAUDE_PLUGIN_ROOT}/hooks/bop-hook.sh\" Stop; exit 0\n#> > $null\npowershell -NoProfile -ExecutionPolicy Bypass -File \"${CLAUDE_PLUGIN_ROOT}/hooks/bop-hook.ps1\" Stop; exit 0"
           }
         ]
       }
@@ -103,7 +103,7 @@
             "type": "command",
             "async": true,
             "timeout": 5,
-            "command": "echo `# <#` >/dev/null\nsh \"${CLAUDE_PLUGIN_ROOT}/hooks/bop-hook.sh\" \"${CLAUDE_PLUGIN_DATA}/bin\" StopFailure; exit 0\n#> > $null\npowershell -NoProfile -ExecutionPolicy Bypass -File \"${CLAUDE_PLUGIN_ROOT}/hooks/bop-hook.ps1\" \"${CLAUDE_PLUGIN_DATA}/bin\" StopFailure; exit 0"
+            "command": "echo `# <#` >/dev/null\nsh \"${CLAUDE_PLUGIN_ROOT}/hooks/bop-hook.sh\" StopFailure; exit 0\n#> > $null\npowershell -NoProfile -ExecutionPolicy Bypass -File \"${CLAUDE_PLUGIN_ROOT}/hooks/bop-hook.ps1\" StopFailure; exit 0"
           }
         ]
       }
@@ -115,7 +115,7 @@
             "type": "command",
             "async": true,
             "timeout": 5,
-            "command": "echo `# <#` >/dev/null\nsh \"${CLAUDE_PLUGIN_ROOT}/hooks/bop-hook.sh\" \"${CLAUDE_PLUGIN_DATA}/bin\" SessionEnd; exit 0\n#> > $null\npowershell -NoProfile -ExecutionPolicy Bypass -File \"${CLAUDE_PLUGIN_ROOT}/hooks/bop-hook.ps1\" \"${CLAUDE_PLUGIN_DATA}/bin\" SessionEnd; exit 0"
+            "command": "echo `# <#` >/dev/null\nsh \"${CLAUDE_PLUGIN_ROOT}/hooks/bop-hook.sh\" SessionEnd; exit 0\n#> > $null\npowershell -NoProfile -ExecutionPolicy Bypass -File \"${CLAUDE_PLUGIN_ROOT}/hooks/bop-hook.ps1\" SessionEnd; exit 0"
           }
         ]
       }

@@ -15,9 +15,8 @@ Everything stays on your computer:
   `window.json` (window position), `config.json` (the active pet), `running.json` and `control`
   (used to open and close the single pet window), installed pets in `pets/`, and empty working
   folders `chat/` and `hatch/`.
-- The Bop app itself lives in the plugin's data folder (`~/.claude/plugins/data/<plugin-id>/bin/`).
-  Claude Code deletes that folder when you uninstall the plugin. Delete `~/.bop/` yourself to
-  remove the rest.
+- The Bop app itself, copied to `~/.bop/bin/` when you first open it. Delete `~/.bop/` yourself
+  to remove everything; uninstalling the plugin does not remove it.
 
 Bop keeps these files until you delete them. It does not store your prompts or Claude's
 replies; the chat history of the pet's chat is kept by Claude Code itself, like any other
@@ -25,9 +24,6 @@ Claude Code session.
 
 ## What leaves your computer
 
-- **Setup download.** `/bop setup` downloads the Bop app and its `SHA256SUMS` file from the
-  plugin's GitHub release (github.com, which may redirect to GitHub's file host
-  `*.githubusercontent.com`). It sends nothing except the normal download request.
 - **Pet chat.** Messages you type into the pet are sent by your own Claude Code (`claude -p`)
   under your own Claude account, exactly as if you had typed them in Claude Code. They count
   toward your plan's usage limits. Anthropic's privacy policy applies to that traffic.

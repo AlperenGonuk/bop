@@ -2,6 +2,36 @@
 
 Newest decision on top. Format: date, decision, reason, source.
 
+## 2026-10-03
+
+37. **The plugin no longer downloads the app; the user installs it** (replaces 24 and 33, changes
+    14). Source: Alperen, after the directory reviewer asked for changes ("Plugins in the
+    directory may only run code that is in the reviewed repository, or a package pinned to an
+    exact version"). Alperen asked for the most practical way for the user.
+    - Why not the reviewer's other options: the exe (~10 MB) is over the 5 MiB per-file limit and
+      a compiled exe is held anyway; an MCPB bundle would need Bop to be an MCP server and has the
+      same size problem; a pinned `npx` package needs Node and would run `npx` on every hook.
+    - The user downloads the exe from the GitHub release and opens it once. Opened without
+      arguments (release builds only), the app copies itself to `~/.bop/bin/bop` (`bop.exe`)
+      unless an identical copy is there or the installed one is a newer version (`--version`);
+      when the exe was replaced, a running pet is asked to quit (macOS/Linux replace a running
+      exe without error); if a running pet locks the old copy (Windows), it is asked to quit and
+      the replace is tried once more (only for a failed replace, not for other errors). Then it
+      starts the pet from `~/.bop/bin` and exits, so the download is not kept open and can be
+      deleted. Updating = opening a newer download. Pets started by `toggle` get `--no-install`.
+      If the copy fails, the message is shown in the pet window (a double-clicked exe's console
+      closes at once).
+    - On Windows the sh scripts use `%USERPROFILE%` (via `cygpath`) like the app, since Git Bash's
+      `$HOME` can differ. `bop-hook.*` take an optional app folder as the 2nd argument; only the
+      repository's dev hooks (`.claude/settings.json`) use it, for the debug build.
+    - Hooks (`hooks/bop-hook.*`, argument: event only) and skills run the app only from
+      `~/.bop/bin/`. Skills call it through `scripts/bop.sh` / `scripts/bop.ps1`, which print
+      how to install the app (exit 127) when it is missing. `allowed-tools` name these scripts
+      (the reviewer's suggested form). `/bop setup` only explains the steps.
+    - Removed: `scripts/install.ps1` / `install.sh`, `plugin.json` `metadata.releaseRepo`. The
+      release workflow still builds the same files + `SHA256SUMS`.
+    - `BOP_HOME` overrides `~/.bop` in the scripts too (testing).
+
 ## 2026-10-02
 
 36. **The plugin is the repository root; hooks call two readable scripts** (changes 29). Source:

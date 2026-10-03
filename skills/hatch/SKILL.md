@@ -1,7 +1,7 @@
 ---
 name: hatch
 description: Creates a new pet for the Bop desktop pet app by describing it as a JSON spec and letting the Bop app draw every animation frame with code (no image generation). Use when the user wants to make, create, design, draw or hatch a new Bop pet or mascot, for example "Let's make a new Bop pet!", "make me a blue cat pet", or "hatch a ghost for Bop".
-allowed-tools: Bash("${CLAUDE_PLUGIN_DATA}/bin/bop" hatch *), Bash("${CLAUDE_PLUGIN_DATA}/bin/bop.exe" hatch *), PowerShell(& "${CLAUDE_PLUGIN_DATA}/bin/bop.exe" hatch *), Bash("${CLAUDE_PLUGIN_DATA}/bin/bop" install *), Bash("${CLAUDE_PLUGIN_DATA}/bin/bop.exe" install *), PowerShell(& "${CLAUDE_PLUGIN_DATA}/bin/bop.exe" install *), Bash("${CLAUDE_PLUGIN_DATA}/bin/bop" use *), Bash("${CLAUDE_PLUGIN_DATA}/bin/bop.exe" use *), PowerShell(& "${CLAUDE_PLUGIN_DATA}/bin/bop.exe" use *)
+allowed-tools: Bash(sh "${CLAUDE_PLUGIN_ROOT}/scripts/bop.sh" hatch *), Bash(sh "${CLAUDE_PLUGIN_ROOT}/scripts/bop.sh" install *), Bash(sh "${CLAUDE_PLUGIN_ROOT}/scripts/bop.sh" use *), PowerShell(powershell -NoProfile -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/scripts/bop.ps1" hatch *), PowerShell(powershell -NoProfile -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/scripts/bop.ps1" install *), PowerShell(powershell -NoProfile -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/scripts/bop.ps1" use *)
 ---
 
 # Hatch a Bop pet
@@ -12,27 +12,27 @@ draw pixels by hand except through the spec's pixel-map escape hatch.
 
 ## The app
 
-- Windows: `${CLAUDE_PLUGIN_DATA}/bin/bop.exe`
-- macOS and Linux: `${CLAUDE_PLUGIN_DATA}/bin/bop`
+`<app>` below stands for the plugin's script that runs the Bop app:
 
-Use the one for the current platform. Use the Bash tool when it is available. Always put the
-path in double quotes. In PowerShell,
-start the command with `& ` (for example `& "<app>" hatch --example`).
+- Bash tool (macOS, Linux, Windows with Git Bash): `sh "${CLAUDE_PLUGIN_ROOT}/scripts/bop.sh"`
+- PowerShell tool (Windows without Git Bash): `powershell -NoProfile -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/scripts/bop.ps1"`
+
+Use the Bash tool when it is available. Write the prefix exactly as above, then the arguments.
 
 Run each app command on its own: no `cd`, no existence check, no pipes or `;`, so it matches
-the permissions this skill grants. If the command fails because the file is not found, tell the
-user in one sentence that the Bop app is not installed yet and that `/bop setup` downloads it,
-then stop. Do not try to download, build or find it any other way.
+the permissions this skill grants. If the script reports that the Bop app is not installed,
+show its message to the user as it is, then stop. Do not try to download, build or find the app
+any other way.
 
 Commands you use:
 
 | Command | What it does |
 | --- | --- |
-| `"<app>" hatch --example [pitir\|critter\|floaty\|custom]` | print an example spec |
-| `"<app>" hatch --docs <spec-format\|qa-rubric\|animation-rows>` | print a reference |
-| `"<app>" hatch "<id>/spec.json" "<id>"` | draw the pet into folder `<id>` |
-| `"<app>" install "<id>"` | install the finished pet into Bop |
-| `"<app>" use <id>` | switch the desktop pet to it (only if the user agrees) |
+| `<app> hatch --example [pitir\|critter\|floaty\|custom]` | print an example spec |
+| `<app> hatch --docs <spec-format\|qa-rubric\|animation-rows>` | print a reference |
+| `<app> hatch "<id>/spec.json" "<id>"` | draw the pet into folder `<id>` |
+| `<app> install "<id>"` | install the finished pet into Bop |
+| `<app> use <id>` | switch the desktop pet to it (only if the user agrees) |
 
 `hatch` exits with 0 when validation passes, 2 when the atlas has errors (files are still
 written so you can look), 1 when the spec is invalid (the message says what to fix).
@@ -82,7 +82,7 @@ contrasting outline, eyes large enough to read. Accessories should be few and ch
 
 ### 3. Hatch and review
 
-1. Run `"<app>" hatch "<id>/spec.json" "<id>"`.
+1. Run `<app> hatch "<id>/spec.json" "<id>"`.
 2. If it exits with 1, fix the spec field named in the message and run again.
 3. Read `<id>/contact-sheet.png` with the Read tool and review it against
    `hatch --docs qa-rubric`. Red cell borders are errors, orange are
@@ -100,9 +100,9 @@ installing; do not wait for approval unless they asked to approve the look.
 
 ### 4. Install
 
-1. Run `"<app>" install "<id>"`. It copies the folder into Bop (`pet.json`, `spritesheet.png`,
+1. Run `<app> install "<id>"`. It copies the folder into Bop (`pet.json`, `spritesheet.png`,
    plus the spec and QA files, which Bop ignores).
-2. Ask: "Shall I switch to <name> now?" Run `"<app>" use <id>` only if the user says yes. A
+2. Ask: "Shall I switch to <name> now?" Run `<app> use <id>` only if the user says yes. A
    running pet changes at once.
 3. Tell the user they can switch pets later from the pet's right-click menu or with `/bop use <id>`.
 
